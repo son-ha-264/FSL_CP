@@ -53,7 +53,7 @@ class ProtoNet(nn.Module):
         query_images: torch.Tensor
     ):
         """
-        Predict query labels using labeled support images.
+        Predict query labels using support images with labels.
         """
         z_support = self.backbone.forward(support_images)
         z_query = self.backbone.forward(query_images)
