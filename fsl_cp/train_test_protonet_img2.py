@@ -6,14 +6,14 @@ from torch import optim
 import json, codecs
 import numpy as np
 from sklearn.metrics import roc_auc_score
-from utils.models.protonet import ProtoNet, FNN_Relu
-from datamodule.protonet_cp import protonet_cp_dataset, protonet_cp_sampler
-from utils.misc import sliding_average
+from utils.models.protonet import ProtoNet
+from datamodule.protonet_img2 import protonet_img_dataset, protonet_img_sampler
 import os
 import pandas as pd
-
-
-# Credits: https://github.com/sicara/easy-few-shot-learning
+from utils.misc import NormalizeByImage
+import torchvision.transforms as transforms
+import timm
+from scipy import stats
 
 
 def fit(
@@ -34,6 +34,8 @@ def fit(
 
     loss = criterion(classification_scores, query_labels.cuda())
     loss.backward()
+    # Gradient clipping
+    torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=5, norm_type=2)
     optimizer.step()
 
     return loss.item()
@@ -62,6 +64,8 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
     """ Evaluate the model on a DataLoader object
     """
     scores = []
+    #list_pred = []
+    #list_true = []
     model.eval()
     with torch.no_grad():
         for episode_index, (
@@ -71,12 +75,25 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
             query_labels,
             class_ids,
         ) in enumerate(data_loader):
-
             y_pred, y_true = evaluate_on_one_task(
                 model, support_images, support_labels, query_images, query_labels
             )
+            # Majority vote the predictions between 6 views
+            # agg_views_pred = stats.mode(y_pred.reshape(-1, 6), keepdims=True, axis = 1).mode.reshape(-1)
+            # agg_views_true = stats.mode(y_true.reshape(-1, 6), keepdims=True, axis = 1).mode.reshape(-1)
             score = roc_auc_score(y_true, y_pred)
             scores.append(score)
+
+    #np_pred = np.array(list_pred)
+    #np_true = np.array(list_true)
+    
+    # Majority vote the predictions between 6 views
+    #agg_views_pred = stats.mode(np_pred.reshape(-1, 4), keepdims=True, axis = 1).mode.reshape(-1)
+    #agg_views_true = stats.mode(np_true.reshape(-1, 4), keepdims=True, axis = 1).mode.reshape(-1)
+
+    # Calculate AUC for each episode
+
+
     if save_path:
         np.save(save_path, np.array(scores))
     return np.mean(scores), np.std(scores)
@@ -84,23 +101,23 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
 
 def main():
     ### Inits
+    # Random inits
+    os.environ['CUDA_VISIBLE_DEVICES']='1'
     support_set_sizes = [16, 32, 64, 96]
     query_set_size = 32
     num_episodes_train = 8192
     num_episodes_test = 100
+    image_resize = 160
 
+    # Path name inits
     json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'
-    label_df_path= '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
-    #cp_f_path=['/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv']
-    cp_f_path=[
-        '/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv',
-        '/home/son.ha/FSL_CP/data/output/norm_ECFP_feature_df.csv', 
-        '/home/son.ha/FSL_CP/data/output/norm_RDKit_feature_df.csv',
-    ]
+    label_df_path = '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
+    image_path = '/mnt/scratch/Son_cellpainting/my_cp_images/'
     temp_folder = '/home/son.ha/FSL_CP/temp/np_files'
     df_assay_id_map_path = "/home/son.ha/FSL_CP/data/output/assay_target_map.csv"
-    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/protonet_cp+_result_summary.csv'
+    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/protonet_img_result_summary_4.csv'
 
+    # Result dictionary init
     result_before_pretrain = {
         'ASSAY_ID': [],
         '16_auc_before_train': [],
@@ -108,13 +125,19 @@ def main():
         '64_auc_before_train': [],
         '96_auc_before_train': []
     }
-
     final_result = {
         '16_auc_after_train': [],
         '32_auc_after_train': [],
         '64_auc_after_train': [],
         '96_auc_after_train': []
     }
+
+
+    ### Define image transformation
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+        transforms.Resize((image_resize,image_resize)),
+        NormalizeByImage()]) 
 
 
     ### Load the assay keys
@@ -130,20 +153,17 @@ def main():
 
     ### Loop through all support set size, performing few-shot prediction:
     for support_set_size in support_set_sizes:
-        print(f"Analysing for support set size {support_set_size}")
-        for test_assay in tqdm(test_split):
+        tqdm.write(f"Analysing for support set size {support_set_size}")
+        for test_assay in tqdm(test_split, desc='Test Assay Index'):
             # Load data
-            train_data = protonet_cp_dataset(
+            #tqdm.write('Load data...')
+            train_data = protonet_img_dataset(
                 train_split, 
                 label_df_path= label_df_path, 
-                cp_f_path=cp_f_path
+                image_path=image_path,
+                transform=transform
             )
-            test_data = protonet_cp_dataset(
-                test_split, 
-                label_df_path= label_df_path, 
-                cp_f_path=cp_f_path
-            )
-            train_sampler = protonet_cp_sampler(
+            train_sampler = protonet_img_sampler(
                 task_dataset=train_data,
                 support_set_size=support_set_size,
                 query_set_size=query_set_size,
@@ -156,7 +176,13 @@ def main():
                 pin_memory=True,
                 collate_fn=train_sampler.episodic_collate_fn,
             )
-            test_sampler = protonet_cp_sampler(
+            test_data = protonet_img_dataset(
+                test_split, 
+                label_df_path= label_df_path, 
+                image_path=image_path,
+                transform=transform
+            )
+            test_sampler = protonet_img_sampler(
                 task_dataset=test_data,
                 support_set_size=support_set_size,
                 query_set_size=query_set_size,
@@ -171,21 +197,23 @@ def main():
                 collate_fn=test_sampler.episodic_collate_fn,
             )
             # Load model
-            input_shape=len(train_data[3][0])
-            backbone = FNN_Relu(num_classes=1600, input_shape=input_shape)
+            backbone = timm.create_model('resnet101', in_chans=5, pretrained=False)
+            num_ftrs = backbone.fc.in_features
+            backbone.fc = nn.Linear(num_ftrs, 1600, bias=True) 
             model = ProtoNet(backbone).cuda()
 
             # Performance before pretraining
+            #tqdm.write('Assess model before pretraining...')
             before_mean, before_std = evaluate(
                 model, 
                 test_loader, 
-                save_path=os.path.join(temp_folder, f"protonet_before_{support_set_size}_{test_assay}.npy")
+                #save_path=os.path.join(temp_folder, f"protonet_before_{support_set_size}_{test_assay}.npy")
             )
             result_before_pretrain[str(support_set_size)+'_auc_before_train'].append(f"{before_mean:.2f}+/-{before_std:.2f}")
 
             # Pretrain on random assays
             criterion = nn.CrossEntropyLoss()
-            optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
+            optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-4)
             all_loss = []
             model.train()
             for episode_index, (
@@ -202,11 +230,12 @@ def main():
             after_mean, after_std = evaluate(
                 model, 
                 test_loader, 
-                save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
+                #save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
             )
             final_result[str(support_set_size)+'_auc_after_train'].append(f"{after_mean:.2f}+/-{after_std:.2f}")
 
-    # Create result summary dataframe
+
+    ### Create result summary dataframe
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)
     df_assay_id_map = df_assay_id_map.astype({'ASSAY_ID': str})
     df_score_before = pd.DataFrame(data=result_before_pretrain)

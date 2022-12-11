@@ -41,6 +41,7 @@ class protonet_cp_dataset(Dataset):
         list_feature_df = []
         for path in cp_f_path:
             feature_df = pd.read_csv(path)
+            feature_df = feature_df.dropna(axis=1, how='any')
             feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
             list_feature_df.append(feature_df)
         self.feature_df = pd.concat(list_feature_df, axis=1)
