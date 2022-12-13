@@ -60,12 +60,13 @@ class protonet_cp_dataset(Dataset):
     def get_label_df(self):
         return self.label_df
 
-
+'''
 def _sample_with_seed(seq, n, seed):
     if seed>=0:
         random.seed(seed)
     ans = random.sample(seq, n)
     return ans
+'''
 
 
 ### TODO: strtified task sampler, random task sampler

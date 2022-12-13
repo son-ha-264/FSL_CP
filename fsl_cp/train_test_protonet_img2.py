@@ -107,7 +107,6 @@ def main():
     query_set_size = 32
     num_episodes_train = 8192
     num_episodes_test = 100
-    image_resize = 160
 
     # Path name inits
     json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'

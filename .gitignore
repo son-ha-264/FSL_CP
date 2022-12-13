@@ -131,6 +131,8 @@ dmypy.json
 # Big data files
 data/
 output/
+logs/
+lightning_logs/
 
 # Temporary files
 temp/
