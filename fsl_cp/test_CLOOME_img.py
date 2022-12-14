@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd  
 import json
 import itertools
+from tqdm import tqdm
 
 import torch
 
@@ -21,19 +22,35 @@ def main():
     import warnings
     warnings.simplefilter(action='ignore', category=DtypeWarning)
 
-    ### Inits
-    support_set_sizes = [16]#[16, 32, 64, 96]
-    query_set_size = 32
-    num_repeat = 1
 
-    ### Path inits
+    ### Inits
+    df_assay_id_map_path = "/home/son.ha/FSL_CP/data/output/assay_target_map.csv"
+    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/cloome_img_result_summary.csv'
+    support_set_sizes = [16, 32, 64, 96]
+    query_set_size = 32
+    num_repeat = 100
+    final_result = {
+        'ASSAY_ID': [],
+        16:[],
+        32:[],
+        64:[],
+        96:[]
+    } 
+
+
+    ### Load data
+    tqdm.write('Load data...')
     cloome_embedding = torch.load('/home/son.ha/FSL_CP/data/embeddings/CLOOME_embeddings_2.pt')
     list_sample_key = pd.read_csv('/home/son.ha/FSL_CP/data/embeddings/list_sample_key_view.csv')
     label_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv')
 
+
+    # Load test split
     with open('/home/son.ha/FSL_CP/data/output/data_split.json') as f:
         data = json.load(f)
     test_split = data['test']
+    final_result['ASSAY_ID'] = test_split
+
 
     ### Untangle label csv (each view is a datapoint)
     label_df['ASSAY'] = label_df['ASSAY'].astype(str)
@@ -55,14 +72,17 @@ def main():
     df = pd.DataFrame(data=cloome_embedding.numpy())
     df = pd.concat([list_sample_key, df], axis=1)
 
+
     ### Final df
     final_df = pd.merge(df,untangled_df, how='right', on='SAMPLE_KEY_VIEW')
 
+
     ### Loop through each assay
-    for support_set_size in support_set_sizes: 
-        temp_l = []
-        for assay in test_split:
-            for repeat in range(num_repeat):
+    for support_set_size in support_set_sizes:
+        tqdm.write(f"Suport size: {support_set_size}")
+        for assay in tqdm(test_split, desc='Loop through all assays'):
+            temp_auc = []
+            for repeat in tqdm(range(num_repeat), desc='Number of episodes', leave=False):
                 chosen_assay_df = final_df[final_df['ASSAY']==assay]
                 # Random stratified sample support and query sets
                 chosen_assay_df_2, support_set_df, label_not_support, label_support = train_test_split(
@@ -72,13 +92,20 @@ def main():
                                 chosen_assay_df_2, label_not_support, test_size=query_set_size, stratify=label_not_support
                             )
                 # Fit logistic regression
-                clf = LogisticRegression(random_state=0, C=1e+10, max_iter=3000).fit(support_set_df, label_support) # 1e+10 best
+                clf = LogisticRegression(random_state=0, C=1e+10, max_iter=10000).fit(support_set_df, label_support) # 1e+10 best
                 pred = clf.predict(query_set_df)
-                temp_l.append(roc_auc_score(label_query, pred))
-                print(roc_auc_score(label_query, pred))
-                break
-    print(f"Mean AUC pred: {np.mean(temp_l)}")
+                temp_auc.append(roc_auc_score(label_query, pred))
+            temp_mean = np.mean(temp_auc)
+            temp_std = np.std(temp_auc)
+            final_result[support_set_size].append(f"{temp_mean:.2f}+/-{temp_std:.2f}")
 
+    print(final_result)
+    ### Create result dataframe
+    df_assay_id_map = pd.read_csv(df_assay_id_map_path)
+    df_assay_id_map = df_assay_id_map.astype({'ASSAY_ID': str})
+    df_score = pd.DataFrame(data=final_result)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path, index=False)
     return None
 
 

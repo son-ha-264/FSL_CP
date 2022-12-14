@@ -85,7 +85,7 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
 def main():
     ### Inits
     support_set_sizes = [16, 32, 64, 96]
-    query_set_size = 32
+    query_set_size = 64
     num_episodes_train = 8192
     num_episodes_test = 100
 

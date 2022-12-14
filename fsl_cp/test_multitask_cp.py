@@ -16,13 +16,13 @@ from utils.metrics import multitask_bce
 def main():
 
     ### Inits
-    num_repeat = 10
+    num_repeat = 100
     support_set_sizes = [16, 32, 64, 96]
-    query_set_size = 64
-    max_epochs = 2
+    query_set_size = 32
+    max_epochs = 50
     loss_function = multitask_bce()
-    devices = [1,2]
-    fraction_train_set = 0.9
+    devices = [2]
+    #fraction_train_set = 0.9
     version = 0
 
     ### Paths inits
@@ -96,10 +96,10 @@ def main():
 
             ### Create DataLoader objects
             support_loader = DataLoader(support_set, batch_size=hparams["training"]["batch_size"],
-                                    shuffle=False, num_workers=8)
+                                    shuffle=False, num_workers=20)
             
             query_loader = DataLoader(query_set, batch_size=hparams["training"]["batch_size"],
-                                    shuffle=False, num_workers=8)
+                                    shuffle=False, num_workers=20)
 
 
             ### Load pretrained models
@@ -148,7 +148,7 @@ def main():
             ### Predict
             best_model = cp_multitask.load_from_checkpoint(final_model_path, 
                                                     **{"model": fnn_pretrained, "loss_function": multitask_bce()})
-            trainer2 = pl.Trainer(accelerator="gpu", devices=1, logger=False)
+            trainer2 = pl.Trainer(accelerator="gpu", devices=devices, logger=False)
             predictions = trainer2.predict(best_model, dataloaders=query_loader)
             #torch.save(predictions, "/home/son.ha/FSL_CP/output/multitask_pred/multitask_"+str(support_set_size)+"_"+str(rep)+".pt")
             query_set.get_label_df().to_csv('/home/son.ha/FSL_CP/output/multitask_pred/query_set_'+str(support_set_size)+"_"+str(rep)+'.csv')
