@@ -92,7 +92,7 @@ def main():
                                 chosen_assay_df_2, label_not_support, test_size=query_set_size, stratify=label_not_support
                             )
                 # Fit logistic regression
-                clf = LogisticRegression(random_state=0, C=1e+10, max_iter=10000).fit(support_set_df, label_support) # 1e+10 best
+                clf = LogisticRegression(random_state=0, C=1e+10, max_iter=10000).fit(support_set_df, label_support)
                 pred = clf.predict(query_set_df)
                 temp_auc.append(roc_auc_score(label_query, pred))
             temp_mean = np.mean(temp_auc)

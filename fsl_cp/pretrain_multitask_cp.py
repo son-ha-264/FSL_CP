@@ -22,7 +22,7 @@ def main():
     dev_run = False
     version = 0
     fraction_train_set = 0.8
-    devices = "1"
+    devices = [3]
     loss_function = multitask_bce()
 
 
@@ -31,10 +31,10 @@ def main():
     hparam_file = '/home/son.ha/FSL_CP/fsl_cp/hparams/fnn_multitask.json'
     cp_f_path = [os.path.join(data_folder, i) for i in [
         'norm_CP_feature_df.csv',
-        'norm_ECFP_feature_df.csv',
-        'norm_RDKit_feature_df.csv',
+        #'norm_ECFP_feature_df.csv',
+        #'norm_RDKit_feature_df.csv',
     ]]
-    logs_path = '/home/son.ha/FSL_CP/logs/multitask_cp_pretrain'
+    logs_path = '/home/son.ha/FSL_CP/logs/multitask_only_cp_pretrain'
 
 
     ### Load hparams from JSON files

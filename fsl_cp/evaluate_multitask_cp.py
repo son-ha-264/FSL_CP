@@ -28,9 +28,9 @@ def main():
     ### Inits
     support_set_sizes = [16, 32, 64, 96]
     num_repeat = 10
-    path_to_file = '/home/son.ha/FSL_CP/output/multitask_pred'
+    path_to_file = '/home/son.ha/FSL_CP/output/multitask_pred_3'
     df_assay_id_map_path = "/home/son.ha/FSL_CP/data/output/assay_target_map.csv"
-    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/multitask_cp+_result_summary.csv'
+    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/multitask_cp+_result_summary_2.csv'
 
     final_result = {
         'ASSAY_ID': [],

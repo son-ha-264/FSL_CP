@@ -66,6 +66,8 @@ class ProtoNet(nn.Module):
         )
 
         dists = torch.cdist(z_query, z_proto)
+        # sim = cosine_sim
+        # Use + instead of -
 
         scores = -dists
         return scores
