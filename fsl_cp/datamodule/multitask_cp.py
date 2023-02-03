@@ -25,7 +25,8 @@ class multitask_pretrain_cp_dataset(Dataset):
     def __init__(self,
                 assay_codes: List[str],
                 label_df_path: str,
-                cp_f_path: List[str],
+                #cp_f_path: List[str],
+                feature_df: pd.core.frame.DataFrame, 
                 inference: bool,
                 set_size=32,
                 random_state=None,
@@ -77,13 +78,14 @@ class multitask_pretrain_cp_dataset(Dataset):
             self.label_df = self.label_df.fillna(-1)
 
         # Read feature matrices and concat them
-        list_feature_df = []
-        for path in cp_f_path:
-            feature_df = pd.read_csv(path)
-            feature_df = feature_df.dropna(axis=1, how='any')
-            feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
-            list_feature_df.append(feature_df)
-        self.feature_df = pd.concat(list_feature_df, axis=1)
+        #list_feature_df = []
+        #for path in cp_f_path:
+        #    feature_df = pd.read_csv(path)
+        #    feature_df = feature_df.dropna(axis=1, how='any')
+        #    feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
+        #    list_feature_df.append(feature_df)
+        #self.feature_df = pd.concat(list_feature_df, axis=1)
+        self.feature_df = feature_df
 
     def __len__(self):
         return len(self.label_df)
@@ -143,10 +145,11 @@ class FNN_Relu(nn.Module):
         return self.classifier(x)
 '''
 
-def load_FNN_with_trained_weights(path_to_weight: str, input_shape):
+def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location=torch.device('cuda:0')):
     """Return FNN with trained weights 
+       Change which GPU/CPU to load the model on with map_loaction 
     """
-    checkpoint = torch.load(path_to_weight)
+    checkpoint = torch.load(path_to_weight, map_location=map_location)
     fnn = FNN_Relu(num_classes=checkpoint['hyper_parameters']['num_classes'], input_shape=input_shape)
     weights = checkpoint["state_dict"]
     del weights['sigma']

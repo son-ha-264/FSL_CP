@@ -114,11 +114,11 @@ class protonet_img_sampler(Sampler):
         # Inits
         self.support_set_size = support_set_size
         self.query_set_size = query_set_size
-        #self.img_support_set_size = support_set_size*6
-        #self.img_query_set_size = query_set_size*6
+        self.img_support_set_size = support_set_size*6
+        self.img_query_set_size = query_set_size*6
         self.num_episodes = num_episodes
         self.task_dataset = task_dataset
-        #self.label_df = task_dataset.get_df()
+        self.label_df = task_dataset.get_df()
         self.untangled_df = task_dataset.get_untangled_df()
         self.specific_assay = specific_assay
 
@@ -141,7 +141,7 @@ class protonet_img_sampler(Sampler):
                         sampled_task = random.sample(self.assay_list, 1)[0]
 
                     # Sample from the chosen assay 
-                    chosen_assay_df = self.untangled_df[self.untangled_df['ASSAY'] == sampled_task]
+                    chosen_assay_df = self.label_df[self.label_df['ASSAY'] == sampled_task]
                     chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
                         chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.support_set_size, stratify=chosen_assay_df['LABEL']
                     )
@@ -153,10 +153,11 @@ class protonet_img_sampler(Sampler):
                     assert len(set(label_support)) == 2
                     assert len(set(label_query)) == 2
 
-                    #img_support_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(support_set_df['INDEX']))].sort_values(by='df1_index')
-                    #img_query_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(query_set_df['INDEX']))].sort_values(by='df1_index')
-                    list_data_idx = list(support_set_df.index) + list(query_set_df.index) 
+                    img_support_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(support_set_df['INDEX']))].sort_values(by='df1_index')
+                    img_query_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(query_set_df['INDEX']))].sort_values(by='df1_index')
+                    list_data_idx = list(img_support_set_df.index) + list(img_query_set_df.index) 
 
+                    assert len(list_data_idx) == self.img_support_set_size + self.img_query_set_size
                 except:
                     if self.specific_assay:
                         raise ValueError('Something wrong with the sampler')
@@ -176,20 +177,20 @@ class protonet_img_sampler(Sampler):
     
         all_images = torch.cat([x[0].unsqueeze(0) for x in input_data])
         all_images = all_images.reshape(
-            (self.support_set_size+self.query_set_size, *all_images.shape[1:])
+            (self.img_support_set_size+self.img_query_set_size, *all_images.shape[1:])
         )
 
         all_labels = torch.tensor(
             [true_class_ids.index(x[1]) for x in input_data]
-        ).reshape((self.support_set_size+self.query_set_size))
+        ).reshape((self.img_support_set_size+self.img_query_set_size))
 
-        support_images = all_images[: self.support_set_size].reshape(
+        support_images = all_images[: self.img_support_set_size].reshape(
             (-1, *all_images.shape[1:])
         )
 
-        query_images = all_images[self.support_set_size :].reshape((-1, *all_images.shape[1:]))
-        support_labels = all_labels[: self.support_set_size].flatten()
-        query_labels = all_labels[self.support_set_size :].flatten()
+        query_images = all_images[self.img_support_set_size :].reshape((-1, *all_images.shape[1:]))
+        support_labels = all_labels[: self.img_support_set_size].flatten()
+        query_labels = all_labels[self.img_support_set_size :].flatten()
 
         return (
             support_images,

@@ -16,19 +16,21 @@ import itertools
 warnings.filterwarnings("ignore", category=DtypeWarning)
 
 '''
-Simulate 6 views just by sampling 6 times more datapoints
-Need to create a custom sampler so that it samples in a stratified wasy, while sample all views from a compound 
+Each datapoint is one well (with all 6 views)
+Dataset implemented here takes only the first view. 
+Other alternatives can be: 
+    - Combine all 6 views into one big image
+    - Make prediction on each of the 6 views, then majority vote/ average the results
 '''
 
 class protonet_img_dataset(Dataset):
-    """DataLoader for ProtoNet running on CP profiles. 
-       Input JSONL files, convert them to lists of inputs and labels
+    """Pytorch dataset class for ProtoNet running on CP images. 
 
     Args:
-        assay_code: list of code numbers of assay
-        data_folder: path to jsonl data files
-        cp_f_path: list of paths to csv files with features (e.g. ecfp,...)
-        mode: 'pretrain'(mode 1) or 'inference'(mode 2) mode
+        assay_codes: a list with code numbers of assay
+        label_df_path: path to 'FINAL_LABEL_DF.csv'
+        image_path: path to image folder
+        transform: image transformation (if any)
     """
 
     def __init__(self, 
@@ -39,7 +41,7 @@ class protonet_img_dataset(Dataset):
     ):
         super(protonet_img_dataset).__init__()
 
-        # Random inits
+        # Miscellanous inits
         self.image_path = image_path
         self.transform = transform
 
@@ -47,44 +49,25 @@ class protonet_img_dataset(Dataset):
         self.label_df = pd.read_csv(label_df_path)
         self.label_df['ASSAY'] = self.label_df['ASSAY'].astype(str)
         self.label_df = self.label_df[self.label_df['ASSAY'].isin(assay_codes)]
-        self.label_df['NUM_VIEWS'] = self.label_df['VIEWS'].apply(lambda x: len(x.split('_')))
-        self.label_df = self.label_df[self.label_df['NUM_VIEWS']==6]
         self.label_df = self.label_df.reset_index(drop=True)
-        self.label_df['INDEX'] = range(len(self.label_df))
-
-        # Untangled label csv (each view is a datapoint)
-        a = self.label_df.apply(lambda x: self._create_img_id(x['SAMPLE_KEY'], x['VIEWS'], x['INDEX'], x['ASSAY'], x['LABEL']), axis=1)
-        result = list(itertools.chain.from_iterable(a))
-        self.untangled_df = pd.DataFrame(data={
-            'df1_index':[int(i.split('/')[0]) for i in result],
-            'SAMPLE_KEY_VIEW': [i.split('/')[1] for i in result],
-            'ASSAY': [i.split('/')[2] for i in result],
-            'LABEL': [np.float64(i.split('/')[3]) for i in result],
-            })
+        self.label_df['SAMPLE_KEY_VIEW'] = self.label_df[['SAMPLE_KEY', 'VIEWS']].agg('-'.join, axis=1).str[0:11]
         
-
     def __len__(self):
-        return len(self.untangled_df)
+        return len(self.label_df)
     
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.item()
-        filename = self.untangled_df.loc[idx, 'SAMPLE_KEY_VIEW'] + '.npz'
+        filename = self.label_df.loc[idx, 'SAMPLE_KEY_VIEW'] + '.npz'
         filename = os.path.join(self.image_path, filename)
         x = np.load(filename)["sample"]
-        y = self.untangled_df.loc[idx, 'LABEL']
+        y = self.label_df.loc[idx, 'LABEL']
         if self.transform:
             x = self.transform(x)
         return x,y 
 
-    def get_untangled_df(self):
-        return self.untangled_df
-
     def get_df(self):
         return self.label_df
-
-    def _create_img_id(self, sample_key, views, index, assay, label):
-        return([str(index)+'/'+sample_key+'-'+i+'/'+str(assay)+'/'+str(label) for i in views.split('_')])
 
 
 ### TODO: strtified task sampler, random task sampler
@@ -93,13 +76,19 @@ class protonet_img_dataset(Dataset):
 
 class protonet_img_sampler(Sampler):
     """
-    1. Sample n tasks/assays from a total of N tasks
-    2. For each task,
-        a. Sample support and query compounds (wrt to compounds, not views)
-        b. Return CP features and labels
-    3. Return an iterator that yield () at each iteration
+    Custom sampler for few-shot prediction using ProtoNet
+    When construct a Pytorch DataLoader, set the collate_fn argument as: 
 
-    Sampler (batch_sampler arg in DataLoader) yields a list of keys at a time
+        collate_fn=train_sampler.episodic_collate_fn
+
+    (refer to the script 'train_test_protonet_img.py' for exact usage)
+
+    Args:
+        task_dataset: A protonet_img_dataset data object
+        support_set_size: size of support set (=2 * num_shots)
+        query_set_size: size of query set
+        num_episodes: Number of training episodes
+        specific_assay: Code of one assay you want to sample (mainly for debugging)
     """
     def __init__(
         self,
@@ -111,19 +100,16 @@ class protonet_img_sampler(Sampler):
     ):
         super().__init__(data_source=None)
 
-        # Inits
+        # Misc inits
         self.support_set_size = support_set_size
         self.query_set_size = query_set_size
-        self.img_support_set_size = support_set_size*6
-        self.img_query_set_size = query_set_size*6
         self.num_episodes = num_episodes
         self.task_dataset = task_dataset
-        self.label_df = task_dataset.get_df()
-        self.untangled_df = task_dataset.get_untangled_df()
+        self.df = self.task_dataset.get_df()
         self.specific_assay = specific_assay
 
         # Extract list of assays
-        self.assay_list = list(self.untangled_df['ASSAY'].unique())
+        self.assay_list = list(self.df['ASSAY'].unique())
 
     def __len__(self):
         return self.num_episodes
@@ -132,6 +118,7 @@ class protonet_img_sampler(Sampler):
         for _ in range(self.num_episodes):
             
             bad_task = True
+            # If anything wrong with the sampling process (due to data), just samples again
             while bad_task:
                 try:
                     # Randomly choose an assay to sample from
@@ -140,33 +127,31 @@ class protonet_img_sampler(Sampler):
                     else:
                         sampled_task = random.sample(self.assay_list, 1)[0]
 
-                    # Sample from the chosen assay 
-                    chosen_assay_df = self.label_df[self.label_df['ASSAY'] == sampled_task]
+                    # Sample supoprt and query sets from the chosen assay 
+                    chosen_assay_df = self.df[self.df['ASSAY'] == sampled_task]
                     chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
                         chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.support_set_size, stratify=chosen_assay_df['LABEL']
                     )
-                    _unused_2, query_set_df, _unused3, label_query = train_test_split(
+                    _unused2, query_set_df, _unused3, label_query = train_test_split(
                         chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=chosen_assay_df_2['LABEL']
                     )
+
+                    # Sample sanity check
                     assert len(support_set_df) == self.support_set_size
                     assert len(query_set_df) == self.query_set_size
                     assert len(set(label_support)) == 2
                     assert len(set(label_query)) == 2
 
-                    img_support_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(support_set_df['INDEX']))].sort_values(by='df1_index')
-                    img_query_set_df = self.untangled_df[self.untangled_df['df1_index'].isin(list(query_set_df['INDEX']))].sort_values(by='df1_index')
-                    list_data_idx = list(img_support_set_df.index) + list(img_query_set_df.index) 
+                    list_data_idx = list(support_set_df.index) + list(query_set_df.index) 
 
-                    assert len(list_data_idx) == self.img_support_set_size + self.img_query_set_size
                 except:
+                    # pass
                     if self.specific_assay:
                         raise ValueError('Something wrong with the sampler')
                 else: 
                     bad_task = False
             
-            # Yield a list, each element correspond to a row in the df
-            #for i in list(img_query_set_df.index):
-            #    list_data_idx = list(img_support_set_df.index) + [i]
+            # Yield a list, each element correspond to the index of a row in the df
             yield list_data_idx
 
     def episodic_collate_fn(
@@ -177,20 +162,20 @@ class protonet_img_sampler(Sampler):
     
         all_images = torch.cat([x[0].unsqueeze(0) for x in input_data])
         all_images = all_images.reshape(
-            (self.img_support_set_size+self.img_query_set_size, *all_images.shape[1:])
+            (self.support_set_size+self.query_set_size, *all_images.shape[1:])
         )
 
         all_labels = torch.tensor(
             [true_class_ids.index(x[1]) for x in input_data]
-        ).reshape((self.img_support_set_size+self.img_query_set_size))
+        ).reshape((self.support_set_size+self.query_set_size))
 
-        support_images = all_images[: self.img_support_set_size].reshape(
+        support_images = all_images[: self.support_set_size].reshape(
             (-1, *all_images.shape[1:])
         )
 
-        query_images = all_images[self.img_support_set_size :].reshape((-1, *all_images.shape[1:]))
-        support_labels = all_labels[: self.img_support_set_size].flatten()
-        query_labels = all_labels[self.img_support_set_size :].flatten()
+        query_images = all_images[self.support_set_size :].reshape((-1, *all_images.shape[1:]))
+        support_labels = all_labels[: self.support_set_size].flatten()
+        query_labels = all_labels[self.support_set_size :].flatten()
 
         return (
             support_images,
