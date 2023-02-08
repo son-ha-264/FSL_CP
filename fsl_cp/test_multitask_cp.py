@@ -139,7 +139,7 @@ def main():
                 pred_array = tensor_pred.cpu().detach().numpy()
                 true_array = labels.detach().numpy()
                 list_auc.append(roc_auc_score(true_array, pred_array))
-            print(list_auc)
+            #print(list_auc)
             final_result[str(support_set_size)].append(f"{np.mean(list_auc):.2f}+/-{np.std(list_auc):.2f}")
 
     ### Create result summary dataframe

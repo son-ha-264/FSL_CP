@@ -70,4 +70,5 @@ class ProtoNet(nn.Module):
         # Use + instead of -
 
         scores = -dists
+        # May be cosine similarity in the future?
         return scores

@@ -184,3 +184,10 @@ class protonet_cp_sampler(Sampler):
             query_labels,
             true_class_ids,
         )
+    
+'''
+TODO:
+Delete duplicates of protonet_cp and datamodule.protonet_img
+Add "several tasks per epoch" to the datamodule of ProtoNet
+Add validation to all models
+'''
