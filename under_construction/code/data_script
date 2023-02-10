@@ -1,0 +1,19 @@
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv('../../data/output/FINAL_LABEL_DF.csv')
+df_feat = pd.read_csv('../../data/output/norm_CP_feature_df.csv')
+
+
+
+df['ASSAY'] = df['ASSAY'].astype('string')
+temp_df = df[df['ASSAY'] == '845173']
+temp_df = temp_df.set_index(['NUM_ROW_CP_FEATURES'])
+
+
+temp_df.drop(['INCHIKEY','CPD_SMILES', 'SAMPLE_KEY'],axis=1,inplace=True)
+df_feat.drop(['CPD_SMILES', 'SAMPLE_KEY', 'INCHIKEY'],axis=1,inplace=True)
+df_one_assay=temp_df.join(df_feat, lsuffix='left_', rsuffix='_right')
+df_one_assay.drop(['VIEWS','ASSAY'],axis=1,inplace=True)
+df_one_assay.to_csv('../data_output/one_assay4.csv',index=False)
+
