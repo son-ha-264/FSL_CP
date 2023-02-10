@@ -11,9 +11,23 @@ from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import RocCurveDisplay
 
+
+
+
+
 #list of asssays
 ls_assay = ["688267", "600886", "737826", "737824_1", "737825", "1495405", "737053", "737400",
  "736947", "752347", "752496", "752509", "752594", "809095", "845173", "845196", "954338", "845206"]
+
+#hyperparameters 
+parameters = {
+ 'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
+ 'max_depth': np.arange(1, 11, 2),
+ 'n_estimators': np.arange(50, 550, 50),
+ 'subsample': [0.5, 1]
+ }
+
+df_param = pd.DataFrame(columns=parameters)
 
 #list of support set sizes
 ls_sss = [8, 16, 32, 64, 96]
@@ -26,6 +40,14 @@ param_sample_size = 20
 
 #size of iterations left to complete sample size for science
 iter = total_iter_range - param_sample_size
+
+
+
+
+
+
+
+
 
 #initial for-loop that starts process for every assay we chose
 for i in range(len(ls_assay)):
@@ -63,12 +85,7 @@ for i in range(len(ls_assay)):
 
             #randomsearchcv
 
-            parameters = {
-            'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
-            'max_depth': np.arange(1, 11, 2),
-            'n_estimators': np.arange(50, 550, 50),
-            'subsample': [0.5, 1]
-            }
+            
 
             rscv = RandomizedSearchCV(model, parameters, random_state=7)
 
@@ -76,9 +93,11 @@ for i in range(len(ls_assay)):
 
             params = search.best_params_
 
-            print(f"Best parameters are:{params}.")
+            #adding the best parameters of the k-th run to the parameter dataframe
+            temporary = pd.DataFrame(params,index=[k])
+            df_param = pd.concat([temporary,df_param], ignore_index=True)
 
-            model2 = XGBClassifier(objective='binary:logistic',subsample=1, n_estimators=250, max_depth=1, learning_rate=0.4).fit(X_trts,y_trts)
+    
 
             y_pred = search.predict(X_tts)
 
@@ -89,6 +108,7 @@ for i in range(len(ls_assay)):
             #auc = sk.metrics.roc_auc_score(y_tts,y_pred)
             auc= metrics.auc(fpr,tpr)
 
+        #for-loop for finding most common used parameters + fall für nicht eindeutig einbauen
 
         for l in range(iter):
             nur=3
