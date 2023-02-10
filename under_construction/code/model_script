@@ -1,0 +1,99 @@
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import sklearn as sk
+import matplotlib.pyplot as plt
+
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn import metrics
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import RocCurveDisplay
+
+#list of asssays
+ls_assay = ["688267", "600886", "737826", "737824_1", "737825", "1495405", "737053", "737400",
+ "736947", "752347", "752496", "752509", "752594", "809095", "845173", "845196", "954338", "845206"]
+
+#list of support set sizes
+ls_sss = [8, 16, 32, 64, 96]
+
+#total numbers of iterations that are done 
+total_iter_range = 100
+
+#size of the sample for looking for the most commonly used parameters of a given support set
+param_sample_size = 20
+
+#size of iterations left to complete sample size for science
+iter = total_iter_range - param_sample_size
+
+#initial for-loop that starts process for every assay we chose
+for i in range(len(ls_assay)):
+    name = ls_assay[i]
+
+    file_name = name + '.csv'
+    print(file_name)
+    df_testing = pd.read_csv(f'under_construction/data_output/{file_name}')#LABEL MUST BE IN COLUMN 1 !!!
+
+    #for-loop for every support set size
+    for j in range(len(ls_sss)):
+
+        df_param = pd.DataFrame() # dictionary for optimal parameters
+
+        for k in range(param_sample_size):
+            
+
+            #initialising of the training-set
+            X = df_testing.iloc[:,1:]#.to_numpy()
+
+            y = df_testing.iloc[:,0].astype(int).to_numpy()
+
+            '''chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(chosen_assay_df, chosen_assay_df['LABEL'], 
+            test_size=self.support_set_size, stratify=chosen_assay_df['LABEL'])
+            _unused_2, query_set_df, _unused3, label_query = train_test_split(
+            chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=chosen_assay_df_2['LABEL'])'''
+
+            #splitting the training set into a training- and test-set; testing with a subset of 100 values; random state 7 as lucky number
+            X_trts, X_tts, y_trts, y_tts = train_test_split(X,y,test_size=0.2, stratify=y, random_state=7)
+
+
+            #building the model with xgboost; softmax=multidimensional logistic fuction?; fitting the train-subset
+            model = XGBClassifier(objective='binary:logistic')
+
+
+            #randomsearchcv
+
+            parameters = {
+            'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
+            'max_depth': np.arange(1, 11, 2),
+            'n_estimators': np.arange(50, 550, 50),
+            'subsample': [0.5, 1]
+            }
+
+            rscv = RandomizedSearchCV(model, parameters, random_state=7)
+
+            search = rscv.fit(X_trts,y_trts)
+
+            params = search.best_params_
+
+            print(f"Best parameters are:{params}.")
+
+            model2 = XGBClassifier(objective='binary:logistic',subsample=1, n_estimators=250, max_depth=1, learning_rate=0.4).fit(X_trts,y_trts)
+
+            y_pred = search.predict(X_tts)
+
+            #evaluating the model with auc metric
+
+
+            fpr,tpr,threshholds = metrics.roc_curve(y_tts,y_pred)
+            #auc = sk.metrics.roc_auc_score(y_tts,y_pred)
+            auc= metrics.auc(fpr,tpr)
+
+
+        for l in range(iter):
+            nur=3
+
+
+
+
+print('end')
