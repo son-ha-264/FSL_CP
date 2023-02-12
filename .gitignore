@@ -133,6 +133,7 @@ data/
 output/
 logs/
 lightning_logs/
+result/result_summary2/
 
 # Temporary files
 temp/

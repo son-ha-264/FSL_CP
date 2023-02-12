@@ -8,10 +8,11 @@ from torch.utils.data import Sampler
 from sklearn.model_selection import train_test_split
 import warnings
 from pandas.errors import DtypeWarning
+from .utils import task_sample
 
 warnings.filterwarnings("ignore", category=DtypeWarning)
 
-class protonet_cp_dataset(Dataset):
+class maml_cp_dataset(Dataset):
     """DataLoader for ProtoNet running on CP profiles. 
        Input JSONL files, convert them to lists of inputs and labels
 
@@ -26,7 +27,7 @@ class protonet_cp_dataset(Dataset):
                 label_df_path: str,
                 cp_f_path: List[str],
     ):
-        super(protonet_cp_dataset).__init__()
+        super().__init__()
 
         # Load label csv file
         self.label_df = pd.read_csv(label_df_path)
@@ -70,7 +71,7 @@ def _sample_with_seed(seq, n, seed):
 ### https://github.com/microsoft/FS-Mol/blob/main/fs_mol/data/fsmol_task_sampler.py
 
 
-class protonet_cp_sampler(Sampler):
+class maml_cp_sampler(Sampler):
     """
     1. Sample n tasks/assays from a total of N tasks
     2. For each task,
@@ -82,9 +83,10 @@ class protonet_cp_sampler(Sampler):
     """
     def __init__(
         self,
-        task_dataset: protonet_cp_dataset,
+        task_dataset: maml_cp_dataset,
         support_set_size: int,
         query_set_size: int,
+        meta_batch_size:int, 
         num_episodes: int,
         specific_assay = None,
         sample_method = 'stratify'
@@ -96,7 +98,7 @@ class protonet_cp_sampler(Sampler):
         # Inits
         self.support_set_size = support_set_size
         self.query_set_size = query_set_size
-        self.num_episodes = num_episodes
+        self.num_episodes = num_episodes * meta_batch_size
         self.task_dataset = task_dataset
         self.label_df = task_dataset.get_label_df()
         self.specific_assay = specific_assay
@@ -123,6 +125,8 @@ class protonet_cp_sampler(Sampler):
 
                     # Sample from the chosen assay 
                     chosen_assay_df = self.label_df[self.label_df['ASSAY'] == sampled_task]
+                    support_set_df, query_set_df, label_support, label_query = task_sample(self.sample_method, chosen_assay_df, self.support_set_size, self.query_set_size)
+                    """
                     if self.sample_method == 'stratify':
                         chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
                             chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.support_set_size, stratify=chosen_assay_df['LABEL']
@@ -137,6 +141,7 @@ class protonet_cp_sampler(Sampler):
                         _unused_2, query_set_df, _unused3, label_query = train_test_split(
                             chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=None
                         )
+                    """
                     assert len(support_set_df) == self.support_set_size
                     assert len(query_set_df) == self.query_set_size
                     assert len(set(label_support)) == 2
@@ -181,4 +186,3 @@ class protonet_cp_sampler(Sampler):
             query_labels,
             true_class_ids,
         )
-    

@@ -15,6 +15,75 @@ from pandas.errors import DtypeWarning
 import warnings
 warnings.simplefilter(action='ignore', category=DtypeWarning)
 
+
+def _change_assay_to_columns(df):
+        newdf = df.pivot(index='NUM_ROW_CP_FEATURES', columns='ASSAY', values="LABEL")
+        newdf = newdf.rename(columns={newdf.columns[0]: 'LABEL'})
+        return(newdf)
+
+def prepare_support_query_multitask_cp(
+    assay_code: str,
+    label_df_path: str,
+    feature_df: pd.core.frame.DataFrame,
+    support_set_size: int,
+    query_set_size: int,
+    random_state=None,
+
+):
+
+    # Inits
+    if not random_state:
+        random_state = random.randint(0,100)
+
+    # Load label csv file
+    label_df_before = pd.read_csv(label_df_path)
+    label_df_before['ASSAY'] = label_df_before['ASSAY'].astype(str)
+    label_df_before = label_df_before[label_df_before['ASSAY'].isin([assay_code])]
+    chosen_assay_df = label_df_before.reset_index(drop=True)
+
+    # If random sample for few-shot prediction
+    chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
+                chosen_assay_df, chosen_assay_df['LABEL'], test_size=support_set_size, 
+                stratify=chosen_assay_df['LABEL'], random_state=random_state
+            )
+    _unused_2, query_set_df, _unused3, label_query = train_test_split(
+                            chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=query_set_size, 
+                            stratify=chosen_assay_df_2['LABEL'], random_state=random_state
+                        )
+
+    support_set_df = _change_assay_to_columns(support_set_df).dropna(axis=0, how='all').reset_index(drop=False)
+    query_set_df = _change_assay_to_columns(query_set_df).dropna(axis=0, how='all').reset_index(drop=False)
+    support_set_df = support_set_df.fillna(-1)
+    query_set_df = query_set_df.fillna(-1)
+
+    return multitask_cp_dataset(feature_df, support_set_df), multitask_cp_dataset(feature_df, query_set_df)
+
+
+class multitask_cp_dataset(Dataset):
+    def __init__(self,
+            feature_df: pd.core.frame.DataFrame,
+            label_df: pd.core.frame.DataFrame,):
+        super().__init__()
+        self.label_df = label_df
+        self.feature_df = feature_df
+    
+    def __len__(self):
+        return len(self.label_df)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.item()
+        cp_f_df_idx = self.label_df['NUM_ROW_CP_FEATURES'][idx]
+        x = torch.tensor(self.feature_df.iloc[cp_f_df_idx, :],dtype=torch.float)
+        y = torch.tensor(self.label_df.loc[idx, 'LABEL'],dtype=torch.float)
+        return x,y 
+    
+    def return_df(self):
+        return self.feature_df, self.label_df
+
+
+
+
 class multitask_pretrain_cp_dataset(Dataset):
     """Pytorch dataset class for multitask pretraining with CP profile
     
@@ -25,8 +94,7 @@ class multitask_pretrain_cp_dataset(Dataset):
     def __init__(self,
                 assay_codes: List[str],
                 label_df_path: str,
-                #cp_f_path: List[str],
-                feature_df: pd.core.frame.DataFrame, 
+                feature_df: pd.core.frame.DataFrame,
                 inference: bool,
                 set_size=32,
                 random_state=None,
@@ -102,9 +170,6 @@ class multitask_pretrain_cp_dataset(Dataset):
         newdf = df.pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
         newdf.columns = newdf.columns.droplevel(0)
         return(newdf)
-
-    def get_label_df(self):
-        return(self.label_df)
 
 '''
 class FNN_Relu(nn.Module):
