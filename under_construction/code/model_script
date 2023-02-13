@@ -2,16 +2,18 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 import sklearn as sk
-import matplotlib.pyplot as plt
 
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn import metrics
 from sklearn.metrics import roc_auc_score
-from sklearn.metrics import RocCurveDisplay
+#from sklearn.metrics import RocCurveDisplay
 
 
+
+#################################INITIALISATION#################################
+################################################################################
 
 
 
@@ -27,7 +29,11 @@ parameters = {
  'subsample': [0.5, 1]
  }
 
-df_param = pd.DataFrame(columns=parameters)
+
+
+output = {'ASSAY_ID':[ls_assay],8:[],16:[],32:[],64:[],96:[]}
+
+
 
 #list of support set sizes
 ls_sss = [8, 16, 32, 64, 96]
@@ -43,8 +49,38 @@ iter = total_iter_range - param_sample_size
 
 
 
+################################################################################
+################################################################################
 
 
+###################################FUNCTIONS####################################
+################################################################################
+
+
+
+#function for saving best parameters as json file
+def param_json(df,iter_ass,iter_sss):
+    json_name = 'best_params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
+    df.mode().iloc[0,:].to_json(path_or_buf=f'../under_construction/data_output/{json_name}.json')
+
+
+
+#function for adding auc mean and std to output dict
+def output_dict(auc_df, iter_sss, dict):
+    m = np.mean(auc_df[iter_sss].to_numpy())
+    s = np.std(auc_df[iter_sss].to_numpy())
+    dict[ls_sss[iter_sss]].append(str(m) + '+/-' + str(s))
+    #return dict
+
+
+
+################################################################################
+################################################################################
+
+
+
+#building the model with xgboost
+model = XGBClassifier(objective='binary:logistic')
 
 
 
@@ -55,65 +91,117 @@ for i in range(len(ls_assay)):
 
     file_name = name + '.csv'
     print(file_name)
-    df_testing = pd.read_csv(f'under_construction/data_output/{file_name}')#LABEL MUST BE IN COLUMN 1 !!!
+    df_testing = pd.read_csv(f'under_construction/data_output/{file_name}')          #'''LABEL MUST BE IN COLUMN 1 !!!'''
+
+
+
+    #initialisation of the training-set
+    X = df_testing.iloc[:,1:]#.to_numpy()
+
+    y = df_testing.iloc[:,0].astype(int).to_numpy()
+
 
     #for-loop for every support set size
     for j in range(len(ls_sss)):
 
-        df_param = pd.DataFrame() # dictionary for optimal parameters
+        df_param = pd.DataFrame(columns=parameters)#reset dataframe of the best parameters after each finished  loop
+        df_auc = pd.DataFrame(columns=ls_sss) #reset the auc dataframe
 
-        for k in range(param_sample_size):
+        for k in range(total_iter_range):
             
 
-            #initialising of the training-set
-            X = df_testing.iloc[:,1:]#.to_numpy()
 
-            y = df_testing.iloc[:,0].astype(int).to_numpy()
+           #support set
+            X_rest, X_support, y_rest, y_support = train_test_split(X, y, test_size=ls_sss[j], stratify=y)
+
+            #query set
+            X_unused, X_query, y_unused, y_query = train_test_split(X_rest, y_rest, test_size=32, stratify=y)
 
             '''chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(chosen_assay_df, chosen_assay_df['LABEL'], 
             test_size=self.support_set_size, stratify=chosen_assay_df['LABEL'])
             _unused_2, query_set_df, _unused3, label_query = train_test_split(
             chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=chosen_assay_df_2['LABEL'])'''
 
-            #splitting the training set into a training- and test-set; testing with a subset of 100 values; random state 7 as lucky number
-            X_trts, X_tts, y_trts, y_tts = train_test_split(X,y,test_size=0.2, stratify=y, random_state=7)
-
-
-            #building the model with xgboost; softmax=multidimensional logistic fuction?; fitting the train-subset
-            model = XGBClassifier(objective='binary:logistic')
 
 
             #randomsearchcv
+            rscv = RandomizedSearchCV(model, parameters, random_state=7)#n_jobs -> -1 
 
-            
-
-            rscv = RandomizedSearchCV(model, parameters, random_state=7)
-
-            search = rscv.fit(X_trts,y_trts)
+            search = rscv.fit(X_support,y_support)
 
             params = search.best_params_
 
             #adding the best parameters of the k-th run to the parameter dataframe
-            temporary = pd.DataFrame(params,index=[k])
-            df_param = pd.concat([temporary,df_param], ignore_index=True)
+            #temporary = pd.DataFrame(params,index=[k])
+            #df_param = pd.concat([temporary,df_param], ignore_index=True)          #'''wird der richtige index wegwn ignore_index assigned?'''
+
 
     
 
-            y_pred = search.predict(X_tts)
+            y_pred = search.predict(X_query)
 
             #evaluating the model with auc metric
 
+            #fpr,tpr,threshholds = metrics.roc_curve(y_query,y_pred)
+            auc = sk.metrics.roc_auc_score(y_query,y_pred)
+            #auc= metrics.auc(fpr,tpr)
 
-            fpr,tpr,threshholds = metrics.roc_curve(y_tts,y_pred)
+
+
+            #adding auc value to auc datafrae
+            df_auc.at[k,ls_sss[j]] = auc
+            
+
+        output_dict(df_auc, j, output)
+
+
+        #saving best parameters as json file
+        #param_json(df_param,i,j)
+        
+
+
+        '''#model with before determined best parameters
+        model_80 = XGBClassifier(
+         objective='binary:logistic', learning_rate=df_param.iloc[0,0],max_depth=df_param.iloc[0,1],
+         n_estimators=df_param.iloc[0,2],subsample=df_param.iloc[0,3]
+         )
+
+        for l in range(iter):
+
+
+
+            #support set
+            X_trts, X_support, y_trts, y_support = train_test_split(X, y, test_size=ls_sss[j], stratify=y)
+
+            #query set
+            X_trts2, X_query, y_trts2, y_query = train_test_split(X, y, test_size=32, stratify=y)
+            
+            
+            pred = model_80.fit(X_support,y_support)
+
+            y_pred = search.predict(X_query)
+
+
+
+            #evaluating the model with auc metric
+            fpr,tpr,threshholds = metrics.roc_curve(y_query,y_pred)
             #auc = sk.metrics.roc_auc_score(y_tts,y_pred)
             auc= metrics.auc(fpr,tpr)
 
-        #for-loop for finding most common used parameters + fall für nicht eindeutig einbauen
-
-        for l in range(iter):
-            nur=3
 
 
+            #adding auc value to auc datafrae
+            df_auc.at[k+l,ls_sss[j]] = auc #k+l richtig?'''
+            
+
+    #saving the auc dataframe for EACH assay
+    df_auc_name = 'AUC_ASSAY' + ls_assay[i]
+    
+    df_auc.to_csv(f'../under_construction/data_output/{df_auc_name}.csv')
+
+    #output of mean and std of auc
+    #output['ASSAY_ID'] = ls_assay[i]
+   
 
 
 print('end')
