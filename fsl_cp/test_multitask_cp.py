@@ -17,7 +17,7 @@ from utils.models.shared_models import FNN_Relu
 
 
 ### Inits
-num_repeat = 50
+num_repeat = 100
 support_set_sizes = [8, 16, 32, 64, 96]
 query_set_size = 32
 max_epochs = 50
