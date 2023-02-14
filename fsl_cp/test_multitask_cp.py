@@ -11,7 +11,7 @@ from torch.nn.modules import Linear
 import torch.optim as optim
 
 from utils.metrics import multitask_bce
-from datamodule.multitask_cp_2 import prepare_support_query_multitask_cp, load_FNN_with_trained_weights
+from datamodule.multitask_cp import prepare_support_query_multitask_cp, load_FNN_with_trained_weights
 from torch.utils.data import DataLoader
 from utils.models.shared_models import FNN_Relu
 
@@ -20,7 +20,7 @@ from utils.models.shared_models import FNN_Relu
 num_repeat = 100
 support_set_sizes = [8, 16, 32, 64, 96]
 query_set_size = 32
-max_epochs = 50
+max_epochs = 20
 loss_function = multitask_bce()
 sigmoid = torch.nn.Sigmoid()
 
