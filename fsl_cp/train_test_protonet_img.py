@@ -91,33 +91,27 @@ def main():
 
     # Random inits
     os.environ['CUDA_VISIBLE_DEVICES']='1'
-    support_set_sizes = [16, 32, 64, 96]
+    support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
     num_episodes_train = 8#2048
     num_episodes_test = 100
     image_resize = 20#80
 
     # Path name inits
-    json_path = '../data/output/data_split.json'
-    label_df_path = '../data/output/FINAL_LABEL_DF.csv'
+    HOME = os.environ['HOME']
+    json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
+    label_df_path = os.path.join(HOME,'FSL_CP/data/output/FINAL_LABEL_DF.csv')
     image_path = '/mnt/scratch/Son_cellpainting/my_cp_images/'
-    temp_folder = '../temp/np_files'
-    df_assay_id_map_path = "../data/output/assay_target_map.csv"
-    result_summary_path = '../result/result_summary/protonet_img_result_summary.csv'
+    df_assay_id_map_path = os.path.join(HOME,'FSL_CP/data/output/assay_target_map.csv')
+    result_summary_path = os.path.join(HOME,'FSL_CP/result/result_summary/protonet_img_result_summary.csv')
     
     # Result dictionary init
-    result_before_pretrain = {
-        'ASSAY_ID': [],
-        '16_auc_before_train': [],
-        '32_auc_before_train': [],
-        '64_auc_before_train': [],
-        '96_auc_before_train': []
-    }
     final_result = {
-        '16_auc_after_train': [],
-        '32_auc_after_train': [],
-        '64_auc_after_train': [],
-        '96_auc_after_train': []
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
     }
 
 
@@ -136,7 +130,7 @@ def main():
     test_split = data['test']
  
     train_split = train_split + val_split
-    result_before_pretrain['ASSAY_ID'] = test_split
+    final_result['ASSAY_ID'] = test_split
     
 
     ### Loop through all support set size, performing few-shot prediction:
@@ -191,15 +185,6 @@ def main():
             backbone.fc = nn.Linear(num_ftrs, 1600, bias=True) 
             model = ProtoNet(backbone).cuda()
 
-            # Performance before pretraining
-            #tqdm.write('Performance before...')
-            before_mean, before_std = evaluate(
-                model, 
-                test_loader, 
-                #save_path=os.path.join(temp_folder, f"protonet_before_{support_set_size}_{test_assay}.npy")
-            )
-            result_before_pretrain[str(support_set_size)+'_auc_before_train'].append(f"{before_mean:.2f}+/-{before_std:.2f}")
-
             # Pretrain on random assays
             #tqdm.write('Pretrain...')
             criterion = nn.CrossEntropyLoss()
@@ -223,15 +208,15 @@ def main():
                 test_loader, 
                 #save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
             )
-            final_result[str(support_set_size)+'_auc_after_train'].append(f"{after_mean:.2f}+/-{after_std:.2f}")
+            final_result[str(support_set_size)].append(f"{after_mean:.2f}+/-{after_std:.2f}")
 
 
     ### Create result summary dataframe
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)
     df_assay_id_map = df_assay_id_map.astype({'ASSAY_ID': str})
-    df_score_before = pd.DataFrame(data=result_before_pretrain)
-    df_score_after = pd.DataFrame(data=final_result)
-    df_score = pd.concat([df_score_before, df_score_after], axis=1)
+    #df_score_before = pd.DataFrame(data=result_before_pretrain)
+    df_score = pd.DataFrame(data=final_result)
+    #df_score = pd.concat([df_score_before, df_score_after], axis=1)
     df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
     df_final.to_csv(result_summary_path, index=False)
 

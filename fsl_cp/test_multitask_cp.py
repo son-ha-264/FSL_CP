@@ -20,7 +20,7 @@ from utils.models.shared_models import FNN_Relu
 num_repeat = 100
 support_set_sizes = [8, 16, 32, 64, 96]
 query_set_size = 32
-max_epochs = 20
+max_epochs = 50
 loss_function = multitask_bce()
 sigmoid = torch.nn.Sigmoid()
 
@@ -35,8 +35,7 @@ feature_df = pd.read_csv(os.path.join(data_folder, 'norm_CP_feature_df.csv'))
 feature_df = feature_df.dropna(axis=1, how='any')
 feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
 
-pretrain_logs_path = '/home/son.ha/FSL_CP/logs/multitask_only_cp_pretrain'
-path_to_weight = os.path.join(pretrain_logs_path, 'lightning_logs/version_0/checkpoints/final_model.ckpt')
+path_to_weight = os.path.join(HOME, 'FSL_CP/weights/multitask_cp/final_model.ckpt')
 logs_path = '/home/son.ha/FSL_CP/logs/multitask_cp_finetune2'
 
 

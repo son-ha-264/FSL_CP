@@ -95,55 +95,19 @@ class multitask_pretrain_cp_dataset(Dataset):
                 assay_codes: List[str],
                 label_df_path: str,
                 feature_df: pd.core.frame.DataFrame,
-                inference: bool,
-                set_size=32,
-                random_state=None,
-                support=True
                                 
     ):
         super(multitask_pretrain_cp_dataset).__init__()
-
-        # Inits
-        if random_state:
-            self.random_state = random_state
-        else:
-            self.random_state = random.randint(0,100)
-        self.set_size = set_size
 
         # Load label csv file
         self.label_df_before = pd.read_csv(label_df_path)
         self.label_df_before['ASSAY'] = self.label_df_before['ASSAY'].astype(str)
         self.label_df_before = self.label_df_before[self.label_df_before['ASSAY'].isin(assay_codes)]
         self.label_df_before = self.label_df_before.reset_index(drop=True)
-
-        # If random sample for few-shot prediction
-        # NOTE: Have to do this roundabout to sample seperate support and query sets. 
-        if inference:
-            list_df = []
-            for sampled_task in assay_codes:
-                chosen_assay_df = self.label_df_before[self.label_df_before['ASSAY'] == sampled_task]
-                chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
-                            chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.set_size, 
-                            stratify=chosen_assay_df['LABEL'], random_state=self.random_state
-                        )
-                _unused_2, query_set_df, _unused3, label_query = train_test_split(
-                                        chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.set_size, 
-                                        stratify=chosen_assay_df_2['LABEL'], random_state=self.random_state
-                                    )
-                if support:
-                    list_df.append(support_set_df[['NUM_ROW_CP_FEATURES', 'LABEL', 'ASSAY']])
-                else: 
-                    list_df.append(query_set_df[['NUM_ROW_CP_FEATURES', 'LABEL', 'ASSAY']])
-            list_df_modified = [self._change_assay_to_columns(f) for f in list_df]
-            self.label_df = pd.concat(list_df_modified, axis=1).dropna(axis=0, how='all').reset_index(drop=False)
-            self.label_df = self.label_df.fillna(-1)
-
-        # Else, if pretrain
-        else:
-            self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'NUM_ROW_CP_FEATURES']].pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
-            self.label_df.columns = self.label_df.columns.droplevel(0)
-            self.label_df = self.label_df.reset_index(drop=False)
-            self.label_df = self.label_df.fillna(-1)
+        self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'NUM_ROW_CP_FEATURES']].pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
+        self.label_df.columns = self.label_df.columns.droplevel(0)
+        self.label_df = self.label_df.reset_index(drop=False)
+        self.label_df = self.label_df.fillna(-1)
 
         # Read feature matrices and concat them
         #list_feature_df = []
@@ -154,6 +118,8 @@ class multitask_pretrain_cp_dataset(Dataset):
         #    list_feature_df.append(feature_df)
         #self.feature_df = pd.concat(list_feature_df, axis=1)
         self.feature_df = feature_df
+        self.feature_df = self.feature_df.dropna(axis=1, how='any')
+        self.feature_df = self.feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
 
     def __len__(self):
         return len(self.label_df)
