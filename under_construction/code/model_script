@@ -62,7 +62,7 @@ def main():
 
 
     #total numbers of iterations that are done 
-    total_iter_range = 2
+    total_iter_range = 100
 
 
 
@@ -203,7 +203,7 @@ def main():
 
 
         #for-loop for every support set size
-        for j in tqdm(range(len(ls_sss))):
+        for j in tqdm(range(len(ls_sss)), leave=False):
 
 
             #reset dataframe of the parameters after each finished  loop
@@ -214,7 +214,7 @@ def main():
                         
 
 
-            for k in tqdm(range(total_iter_range)):
+            for k in tqdm(range(total_iter_range), leave=False):
                 
 
 
