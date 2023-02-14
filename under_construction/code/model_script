@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 import sklearn as sk
+import json
 
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
@@ -9,266 +10,286 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
-#from sklearn.metrics import RocCurveDisplay
 
 
 
-#################################INITIALISATION#################################
-################################################################################
+def main():
+
+    #################################INITIALISATION#################################
+    ################################################################################
 
 
 
-#loading initial dataset
-df_assay = pd.read_csv('data/output/FINAL_LABEL_DF.csv')
-df_feat = pd.read_csv('data/output/norm_CP_feature_df.csv')
+    #loading initial dataset
+    df_assay = pd.read_csv('data/output/FINAL_LABEL_DF.csv')
+    df_feat = pd.read_csv('data/output/norm_CP_feature_df.csv')
+    df_map = pd.read_csv('data/output/assay_target_map.csv')
 
-df_assay.drop(['INCHIKEY','CPD_SMILES', 'SAMPLE_KEY'],axis=1,inplace=True)
-df_feat.drop(['CPD_SMILES', 'SAMPLE_KEY', 'INCHIKEY'],axis=1,inplace=True)
-
-
-
-#list of asssays
-ls_assay = ["688267"] #''', "600886", "737826", "737824_1", "737825", "1495405", "737053", "737400","736947", "752347", "752496", "752509", "752594", "809095", "845173", "845196", "954338", "845206"]'''
+    df_assay.drop(['INCHIKEY','CPD_SMILES', 'SAMPLE_KEY'],axis=1,inplace=True)
+    df_feat.drop(['CPD_SMILES', 'SAMPLE_KEY', 'INCHIKEY'],axis=1,inplace=True)
 
 
 
-#list of support set sizes
-ls_sss = [8, 16, 32, 64, 96]
+    #list of asssays
+    f = open('data/output/data_split.json')
+    datajs = json.load(f)
+    ls_assay = datajs['test']
 
-
-
-#hyperparameters 
-parameters = {
- 'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
- 'max_depth': np.arange(1, 11, 2),
- 'n_estimators': np.arange(50, 550, 50),
- 'subsample': [0.5, 1]
- }
-
-
-
-#dictionary for auc output
-output = {'ASSAY_ID':[ls_assay],8:[],16:[],32:[],64:[],96:[]}
-
-
-
-#total numbers of iterations that are done 
-total_iter_range = 30
-
-
-
-#size of the sample for looking for the most commonly used parameters of a given support set
-param_sample_size = 20
-
-
-
-#size of iterations left to complete sample size for science
-iter = total_iter_range - param_sample_size
-
-
-
-################################################################################
-################################################################################
-
-
-###################################FUNCTIONS####################################
-################################################################################
-
-
-#function to shape the original dataframe to our likings
-def assay_df(assaydf,featuredf,assays,ass_iter,save):
-
-    assaydf['ASSAY'] = assaydf['ASSAY'].astype('string')
-    
-    temp_df = assaydf[assaydf['ASSAY'] == assays[ass_iter]]
-    temp_df = temp_df.set_index(['NUM_ROW_CP_FEATURES'])
-    
-    df_one_assay=temp_df.join(featuredf, lsuffix='left_', rsuffix='_right')
-    df_one_assay.drop(['VIEWS','ASSAY'],axis=1,inplace=True)
+    #ls_assay = ["688267", "600886", "737826", "737824_1", "737825", "1495405", "737053", "737400","736947", "752347", 
+    #"752496", "752509", "752594", "809095", "845173", "845196", "954338", "845206"]
 
     
-    if save == True:
-        assay = assays[ass_iter]
-        name = assay +'.csv'
-        df_one_assay.to_csv(f'under_construction/data_output/{name}',index=False)
 
 
+    #list of support set sizes
+    ls_sss = [8, 16, 32, 64, 96]
 
-#function for saving best parameters as json file
-def param_json(df,iter_ass,iter_sss):
-    json_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
-    #df.mode().iloc[0,:].to_json(path_or_buf=f'../under_construction/data_output/{json_name}.json')
-    df.to_json(f'../under_construction/data_output/{json_name}.json')
 
 
+    #hyperparameters 
+    parameters = {
+    'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
+    'max_depth': np.arange(1, 11, 2),
+    'n_estimators': np.arange(50, 550, 50),
+    'subsample': [0.5, 1]
+    }
 
-#function for best parameters as csv file
-def param_csv(df,iter_ass,iter_sss):
-    csv_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
-    df.to_csv(f'../under_construction/data_output/{csv_name}.csv')
 
 
+    #dictionary for auc output
+    output = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
 
-#function for adding auc mean and std to output dict
-def output_dict(auc_df, iter_sss, dict, assay, it_ass, save):
-    m = np.mean(auc_df[iter_sss].to_numpy())
-    s = np.std(auc_df[iter_sss].to_numpy())
-    dict[ls_sss[iter_sss]].append(str(m) + '+/-' + str(s))
 
-    if save == True:
-        out_name = 'auc_assay_' + assay[it_ass]
-        df_parame = pd.DataFrame.from_dict(dict)
-        df_parame.to_csv(f'../under_construction/data_output/{out_name}.csv')
 
-    #return dict
+    #total numbers of iterations that are done 
+    total_iter_range = 2
 
 
 
-################################################################################
-################################################################################
+    ################################################################################
+    ################################################################################
 
 
+    ###################################FUNCTIONS####################################
+    ################################################################################
 
-####################################SETTINGS####################################
-################################################################################
 
+    #function to shape the original dataframe to our likings
+    def assay_df(assaydf,featuredf,assays,ass_iter,save):
 
-
-#building the model with xgboost
-model = XGBClassifier(objective='binary:logistic')
-
-
-
-#Save parameters
-print('Save parameters? y/n')
-answ = input()
-if answ == 'y':
-    save_param = True
-    print('Parameters will be saved.')
-else:
-    save_param = False
-    print('Parameters will not be saved')
-
-
-
-#Save parameters
-print('Save dataframes? y/n')
-answ = input()
-if answ == 'y':
-    save_df = True
-    print('Dataframes will be saved.')
-else:
-    save_df = False
-    print('Dataframes will not be saved')
-
-
-
-#Save auc 
-print('Save AUC output? y/n')
-answ = input()
-if answ == 'y':
-    save_auc = True
-    print('AUC will be saved.')
-else:
-    save_auc = False
-    print('Dataframes will not be saved')
-
-
-
-################################################################################
-################################################################################
-
-
-
-##################################MAIN PROGRAM##################################
-################################################################################
-
-
-
-#initial for-loop that starts process for every assay we chose
-for i in tqdm(range(len(ls_assay))):
-    name = ls_assay[i]
-
-    '''file_name = name + '.csv'
-    print(file_name)
-    df_testing = pd.read_csv(f'under_construction/data_output/{file_name}') '''         #'''LABEL MUST BE IN COLUMN 1 !!!'''
-
-    df_testing = assay_df(df_assay,df_feat,ls_assay,i,save_df)
-
-    #initialisation of the training-set
-    X = df_testing.iloc[:,1:]#.to_numpy()
-
-    y = df_testing.iloc[:,0].astype(int).to_numpy()
-
-
-    #for-loop for every support set size
-    for j in tqdm(range(len(ls_sss))):
-
-        df_param = pd.DataFrame(columns=parameters)#reset dataframe of the best parameters after each finished  loop
-        df_auc = pd.DataFrame(columns=ls_sss) #reset the auc dataframe
-
-        for k in tqdm(range(total_iter_range)):
-            
-
-
-           #support set
-            X_rest, X_support, y_rest, y_support = train_test_split(X, y, test_size=ls_sss[j], stratify=y)
-
-            #query set
-            X_unused, X_query, y_unused, y_query = train_test_split(X_rest, y_rest, test_size=32, stratify=y)
-
-    
-
-
-
-            #randomsearchcv
-            rscv = RandomizedSearchCV(model, parameters, random_state=7, n_jobs=4)          #n_iter=10,cv=5 by default
-
-            search = rscv.fit(X_support,y_support)
-
-            params = search.best_params_
-
-            #adding parameters of the k-th run to the parameter dataframe
-
-            if save_param == True:
-                temporary = pd.DataFrame(params,index=[k])
-                df_param = pd.concat([temporary,df_param], ignore_index=True)          #'''wird der richtige index wegwn ignore_index assigned?'''
-
-
-    
-
-            y_pred = search.predict(X_query)
-
-            #evaluating the model with auc metric
-
-            #fpr,tpr,threshholds = metrics.roc_curve(y_query,y_pred)
-            auc = sk.metrics.roc_auc_score(y_query,y_pred)
-            #auc= metrics.auc(fpr,tpr)
-
-
-
-            #adding auc value to auc datafrae
-            df_auc.at[k,ls_sss[j]] = auc
-            
-
-        output_dict(df_auc, j, output, save_auc, ls_assay, i, save_auc)
-
-
-        #saving parameters as json file
-        if save_param == True:
-            param_csv(df_param,i,j)
+        assaydf['ASSAY'] = assaydf['ASSAY'].astype('string')
         
+        temp_df = assaydf[assaydf['ASSAY'] == assays[ass_iter]]
+        temp_df = temp_df.set_index(['NUM_ROW_CP_FEATURES'])
+        
+        df_one_assay=temp_df.join(featuredf, lsuffix='left_', rsuffix='_right')
+        df_one_assay.drop(['VIEWS','ASSAY'],axis=1,inplace=True)
 
+        
+        if save == True:
+            assay = assays[ass_iter]
+            name = assay +'.csv'
+            df_one_assay.to_csv(f'under_construction/data_output/{name}',index=False)
+        
+        return df_one_assay
+
+
+
+    #function for saving best parameters as json file
+    def param_json(df,iter_ass,iter_sss):
+        json_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
+        #df.mode().iloc[0,:].to_json(path_or_buf=f'../under_construction/data_output/{json_name}.json')
+        df.to_json(f'under_construction/data_output/{json_name}.json')
+
+
+
+    #function for best parameters as csv file
+    def param_csv(df,iter_ass,iter_sss):
+        csv_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
+        df.to_csv(f'under_construction/data_output/{csv_name}.csv')
+
+
+
+    #function for adding auc mean and std to output dict
+    def output_dict(auc_df, dicto, assay, it_ass):
+        for i in auc_df:
+            m = np.mean(auc_df[i].to_numpy())
+            s = np.std(auc_df[i].to_numpy())
+            dicto[i].append(f'{m:.2f}' + '+/-' + f'{s:.2f}')
+
+        dicto['ASSAY_ID'].append(assay[it_ass])
+        dicto['ASSAY_CHEMBL_ID'].append(df_map[df_map['ASSAY_ID'] == assay[it_ass]].iat[0,1])
+
+        return dicto
+
+
+
+    ################################################################################
+    ################################################################################
+
+
+
+    ####################################SETTINGS####################################
+    ################################################################################
+
+
+
+    #building the model with xgboost
+    model = XGBClassifier(objective='binary:logistic')
+
+
+
+    #Save parameters
+    print('Save parameters? y/n')
+    answ = input()
+    if answ == 'y':
+        save_param = True
+        print('Parameters will be saved.')
+    else:
+        save_param = False
+        print('Parameters will not be saved')
+
+
+
+    #Save parameters
+    print('Save dataframes? y/n')
+    answ = input()
+    if answ == 'y':
+        save_df = True
+        print('Dataframes will be saved.')
+    else:
+        save_df = False
+        print('Dataframes will not be saved')
+
+
+
+    #Save auc 
+    print('Save AUC output? y/n')
+    answ = input()
+    if answ == 'y':
+        save_auc = True
+        print('AUC will be saved.')
+    else:
+        save_auc = False
+        print('Dataframes will not be saved')
+
+
+
+    ################################################################################
+    ################################################################################
+
+
+
+    ##################################MAIN PROGRAM##################################
+    ################################################################################
+
+
+
+    #initial for-loop that starts process for every assay we chose
+    for i in tqdm(range(len(ls_assay))):
+        name = ls_assay[i]
+
+             
+        
+        df_testing = pd.DataFrame()
+        df_testing = assay_df(df_assay,df_feat,ls_assay,i,save_df)
+
+        df_final_auc = pd.DataFrame()
+
+        #initialisation of the training-set
+        X = df_testing.iloc[:,1:]#.to_numpy()
+
+        y = df_testing.iloc[:,0].astype(int).to_numpy()
+
+
+        #for-loop for every support set size
+        for j in tqdm(range(len(ls_sss))):
+
+
+            #reset dataframe of the parameters after each finished  loop
+            df_param = pd.DataFrame(columns=parameters)
+
+            #reset the auc dataframe
+            df_auc = pd.DataFrame(columns=ls_sss, index=range(total_iter_range)) 
+                        
+
+
+            for k in tqdm(range(total_iter_range)):
+                
+
+
+            #support set
+                
+                X_rest, X_support, y_rest, y_support = train_test_split(X, y, test_size=ls_sss[j], stratify=y)
+
+                #query set
+                X_unused, X_query, y_unused, y_query = train_test_split(X_rest, y_rest, test_size=32, stratify=y_rest)
+
+                
+
+                #for some assays with support set size of 8 it had occured that the distribution of labels is 50/50, in that case rscv doesnt work
+                #therefore cv in rscv is changed to 3 (rscv uses stratifiedkfold for classification problems, the occured error refers to n_splits
+                # which in our case is equal to cv)
+                if ls_sss[j] == 8:
+                    num_split=3
+                else:
+                    num_split=5
+
+
+
+                #randomsearchcv
+                rscv = RandomizedSearchCV(model, parameters, random_state=7, n_jobs=4,cv=num_split)          #n_iter=10,cv=5 by default
+
+                search = rscv.fit(X_support,y_support)
+
+                params = search.best_params_
+
+
+
+                #adding parameters of the k-th run to the parameter dataframe
+                if save_param == True:
+                    temporary = pd.DataFrame(params,index=[k])
+                    df_param = pd.concat([temporary,df_param])         
+
+
+
+                #predicting the labels of the query set based on the best parameters from rscv
+                y_pred = search.predict(X_query)
+
+
+
+                #evaluating the model with auc metric
+                auc = sk.metrics.roc_auc_score(y_query,y_pred)
+                
+                
+
+
+
+                #adding auc value to auc datafrae
+                df_auc.iat[k,j] = auc
+                
+
+
+            df_temp = df_auc[ls_sss[j]]
+            df_final_auc = pd.concat([df_final_auc,df_temp],axis=1)
+
+            #saving parameters as json file
+            if save_param == True:
+                param_csv(df_param,i,j)
             
 
-    #saving the auc dataframe for EACH assay
-    df_auc_name = 'AUC_ASSAY' + ls_assay[i]
-    
-    df_auc.to_csv(f'../under_construction/data_output/{df_auc_name}.csv')
+        
+        output_dict(df_final_auc, output, ls_assay, i)      
 
-    #output of mean and std of auc
-    #output['ASSAY_ID'] = ls_assay[i]
-   
+    if save_auc == True:
+
+        df_parame = pd.DataFrame.from_dict(output)
+        #df_parame.concat(df_parame,df_map[df_map['ASSAY_ID'] == assay[it_ass]].drop(['ASSAY_ID','target_chembl_id', 'target_type'], axis=1),axis=1)
+        df_parame.to_csv(f'under_construction/data_output/final_result.csv', index = False)
+
+    return None
 
 
-print('end')
+
+if __name__ == '__main__':
+    main() 
