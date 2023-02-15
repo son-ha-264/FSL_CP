@@ -137,3 +137,5 @@ result/result_summary2/
 
 # Temporary files
 temp/
+__pycache__/
+.vscode/
