@@ -85,9 +85,9 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 def main(
     support_set_sizes = [8, 16, 32, 64, 96],
     query_set_size = 32,
-    num_episodes_train = 5,#5000,
-    num_episodes_test = 2,#100,
-    meta_batch_size=1,#16,
+    num_episodes_train = 5000,
+    num_episodes_test = 100,
+    meta_batch_size=16,
     adaptation_steps=1,
     cuda=True,
     seed=69

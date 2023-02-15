@@ -137,7 +137,6 @@ class multitask_pretrain_cp_dataset(Dataset):
         newdf.columns = newdf.columns.droplevel(0)
         return(newdf)
 
-
 def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location=torch.device('cuda:0')):
     """Return FNN with trained weights 
        Change which GPU/CPU to load the model on with map_loaction 

@@ -18,7 +18,7 @@ def main(
         ):
 
     ### Seed
-    pl.seed_everything(69)
+    pl.seed_everything(seed)
     torch.manual_seed(seed)
 
     ### Inits
