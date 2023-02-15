@@ -79,7 +79,13 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
     return np.mean(scores), np.std(scores)
 
 
-def main():
+def main(
+        seed=69
+):
+    ### Seed
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    
     ### Inits
     support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32

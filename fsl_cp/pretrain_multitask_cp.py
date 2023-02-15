@@ -13,11 +13,13 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 
-def main():
+def main(
+        seed=69
+        ):
 
     ### Seed
     pl.seed_everything(69)
-
+    torch.manual_seed(seed)
 
     ### Inits
     dev_run = False
