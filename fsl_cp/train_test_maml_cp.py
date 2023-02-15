@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import argparse
 from tqdm import tqdm
 import learn2learn as l2l
 from sklearn.metrics import roc_auc_score
@@ -84,14 +85,27 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 def main(
     support_set_sizes = [8, 16, 32, 64, 96],
     query_set_size = 32,
-    num_episodes_train = 2000,
-    num_episodes_test = 100,
-    meta_batch_size=32,
+    num_episodes_train = 5,#5000,
+    num_episodes_test = 2,#100,
+    meta_batch_size=1,#16,
     adaptation_steps=1,
     cuda=True,
-    cuda_device='cuda:1'
-    #seed=69
+    seed=69
     ):
+
+    ### Seed
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    ### Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--device', type=str, default='cuda:0',
+        help='gpu(cuda) or cpu')
+    args = parser.parse_args()
+
+    device = args.device
+    cuda_device=device
     
     ### Inits
     device = torch.device('cpu')
@@ -103,8 +117,8 @@ def main(
     HOME = os.environ['HOME']
     data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_auroc_result_summary2.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_dauprc_result_summary2.csv') 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_dauprc_result_summary.csv') 
     json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'
     label_df_path= '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
     cp_f_path=['/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv']
