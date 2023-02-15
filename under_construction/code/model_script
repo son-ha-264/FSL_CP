@@ -23,7 +23,7 @@ def main():
     
 
     
-    HOME = os.environ['HOME']
+    HOME = os.environ['HOME'] + '/FSL_CP/'
 
 
     
