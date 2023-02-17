@@ -82,8 +82,6 @@ class multitask_cp_dataset(Dataset):
         return self.feature_df, self.label_df
 
 
-
-
 class multitask_pretrain_cp_dataset(Dataset):
     """Pytorch dataset class for multitask pretraining with CP profile
     
@@ -151,3 +149,7 @@ def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location
     new_dict = collections.OrderedDict(zip(new_keys, values))
     fnn.load_state_dict(new_dict)
     return fnn
+
+
+def each_view_a_datapoint(df):
+    '''Helper function. '''
