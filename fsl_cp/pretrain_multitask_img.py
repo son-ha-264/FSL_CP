@@ -54,3 +54,9 @@ def main(
     ### Load hparams from JSON files
     with open(hparam_file) as f:
             hparams = json.load(f)
+
+    
+    ### Load data
+    with open(os.path.join(data_folder, 'data_split.json')) as f:
+        data = json.load(f)
+    train_val_split = data['train'] + data['val']
