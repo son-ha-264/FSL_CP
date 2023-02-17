@@ -82,7 +82,7 @@ class multitask_cp_dataset(Dataset):
         return self.feature_df, self.label_df
 
 
-class multitask_pretrain_cp_dataset(Dataset):
+class multitask_pretrain_img_dataset(Dataset):
     """Pytorch dataset class for multitask pretraining with CP profile
     
     Args:
@@ -91,33 +91,20 @@ class multitask_pretrain_cp_dataset(Dataset):
     """
     def __init__(self,
                 assay_codes: List[str],
-                label_df_path: str,
-                feature_df: pd.core.frame.DataFrame,
+                label_df: pd.core.frame.DataFrame,
                                 
     ):
-        super(multitask_pretrain_cp_dataset).__init__()
+        super(multitask_pretrain_img_dataset).__init__()
 
         # Load label csv file
-        self.label_df_before = pd.read_csv(label_df_path)
+        self.label_df_before = label_df
         self.label_df_before['ASSAY'] = self.label_df_before['ASSAY'].astype(str)
         self.label_df_before = self.label_df_before[self.label_df_before['ASSAY'].isin(assay_codes)]
         self.label_df_before = self.label_df_before.reset_index(drop=True)
-        self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'NUM_ROW_CP_FEATURES']].pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
+        self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'VIEWS_LIST']].pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
         self.label_df.columns = self.label_df.columns.droplevel(0)
         self.label_df = self.label_df.reset_index(drop=False)
         self.label_df = self.label_df.fillna(-1)
-
-        # Read feature matrices and concat them
-        #list_feature_df = []
-        #for path in cp_f_path:
-        #    feature_df = pd.read_csv(path)
-        #    feature_df = feature_df.dropna(axis=1, how='any')
-        #    feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
-        #    list_feature_df.append(feature_df)
-        #self.feature_df = pd.concat(list_feature_df, axis=1)
-        self.feature_df = feature_df
-        self.feature_df = self.feature_df.dropna(axis=1, how='any')
-        self.feature_df = self.feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
 
     def __len__(self):
         return len(self.label_df)
@@ -152,4 +139,9 @@ def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location
 
 
 def each_view_a_datapoint(df):
-    '''Helper function. '''
+    '''Helper function. Make eachrow of the dataframe a view, instead of a well.
+    Used for multitask pretraining.'''
+    df['VIEWS_LIST'] = df['VIEWS'].apply(lambda s : s.split('_'))
+    df = df.explode('VIEWS_LIST', ignore_index=True)
+    df['VIEWS_LIST'] = df[['SAMPLE_KEY', 'VIEWS_LIST']].agg('-'.join, axis=1)
+    return df

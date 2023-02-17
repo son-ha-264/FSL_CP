@@ -1,8 +1,10 @@
 import os
 import json
 import argparse
+import pandas as pd
 
 from utils.metrics import multitask_bce
+from datamodule.multitask_img import each_view_a_datapoint
 
 import pytorch_lightning as pl
 import torch
@@ -60,3 +62,6 @@ def main(
     with open(os.path.join(data_folder, 'data_split.json')) as f:
         data = json.load(f)
     train_val_split = data['train'] + data['val']
+
+    label_df = pd.read_csv(os.path.join(data_folder, 'FINAL_LABEL_DF.csv'))
+    label_df = each_view_a_datapoint(label_df)
