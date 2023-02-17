@@ -15,6 +15,7 @@ from datamodule.multitask_cp import prepare_support_query_multitask_cp, load_FNN
 from torch.utils.data import DataLoader
 from utils.models.shared_models import FNN_Relu
 
+# TODO: option to specify checkpoint path, device
 
 def main(
         seed=69
@@ -43,7 +44,6 @@ def main(
     feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
 
     path_to_weight = os.path.join(HOME, 'FSL_CP/weights/multitask_cp/final_model.ckpt')
-    #logs_path = '/home/son.ha/FSL_CP/logs/multitask_cp_finetune2'
 
 
     ### Final result dictionary
