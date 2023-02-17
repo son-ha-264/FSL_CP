@@ -23,7 +23,7 @@ def main():
     
 
     
-    HOME = os.environ['HOME'] 
+    HOME = os.environ['HOME'] + '/FSL_CP/'
 
 
     #parser for optional program settings
@@ -116,7 +116,7 @@ def main():
 
         
         if save == True:
-            df_one_assay.to_csv(os.path.join(HOME,f'FSL_CP/under_construction/data_output/{assays[ass_iter]}.csv'),index=False)
+            df_one_assay.to_csv(os.path.join(HOME,f'FSL_CP/data/output/{assays[ass_iter]}.csv'),index=False)
         
         return df_one_assay
 
@@ -126,14 +126,14 @@ def main():
     def param_json(df,iter_ass,iter_sss):
         json_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
         #df.mode().iloc[0,:].to_json(path_or_buf=f'../under_construction/data_output/{json_name}.json')
-        df.to_json(os.path.join(HOME,f'FSL_CP/under_construction/data_output/{json_name}.json'))
+        df.to_json(os.path.join(HOME,f'FSL_CP/data/output/{json_name}.json'))
 
 
 
     #function for best parameters as csv file
     def param_csv(df,iter_ass,iter_sss):
         csv_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
-        df.to_csv(os.path.join(HOME,f'FSL_CP/under_construction/data_output/{csv_name}.csv'))
+        df.to_csv(os.path.join(HOME,f'FSL_CP/data/output/{csv_name}.csv'))
 
 
 
@@ -171,7 +171,7 @@ def main():
 
         if save_auc == True:
             df_parame = pd.DataFrame.from_dict(output_dictionary)
-            df_parame.to_csv(os.path.join(HOME,f'FSL_CP/under_construction/data_output/xgboost_cp_{metric_name}_result_summary.csv'), index = False)
+            df_parame.to_csv(os.path.join(HOME,f'FSL_CP/result/result_summary/xgboost_cp_{metric_name}_result_summary.csv'), index = False)
 
         return None
 
