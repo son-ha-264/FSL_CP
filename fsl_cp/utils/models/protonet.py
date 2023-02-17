@@ -57,7 +57,8 @@ class ProtoNet(nn.Module):
         """
         z_support = self.backbone.forward(support_images)
         z_query = self.backbone.forward(query_images)
-        n_way = 2
+        #n_way = 2
+        n_way = len(torch.unique(support_labels))
         z_proto = torch.cat(
             [
                 z_support[torch.nonzero(support_labels==label)].mean(0)

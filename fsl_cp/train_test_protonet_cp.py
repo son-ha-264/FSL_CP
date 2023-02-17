@@ -8,13 +8,9 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 from utils.models.protonet import ProtoNet, FNN_Relu
 from datamodule.protonet_cp import protonet_cp_dataset, protonet_cp_sampler
-from utils.misc import sliding_average
 import os
 import pandas as pd
 from torch.optim.lr_scheduler import StepLR
-
-
-# Credits: https://github.com/sicara/easy-few-shot-learning
 
 
 def fit(
@@ -83,39 +79,35 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
     return np.mean(scores), np.std(scores)
 
 
-def main():
+def main(
+        seed=69
+):
+    ### Seed
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    
     ### Inits
-    support_set_sizes = [16, 32, 64, 96]
+    support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
-    num_episodes_train = 20000
+    num_episodes_train = 70000
     num_episodes_test = 100
-    step_size = 5000
+    step_size = 20000
 
     json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'
     label_df_path= '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
-    #cp_f_path=['/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv']
     cp_f_path=[
         '/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv'
     ]
     temp_folder = '/home/son.ha/FSL_CP/temp/np_files'
     df_assay_id_map_path = "/home/son.ha/FSL_CP/data/output/assay_target_map.csv"
-    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/protonet_cp_result_summary.csv'
-
-    """
-    result_before_pretrain = {
-        'ASSAY_ID': [],
-        '16_auc_before_train': [],
-        '32_auc_before_train': [],
-        '64_auc_before_train': [],
-        '96_auc_before_train': []
-    }
-    """
+    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/protonet_cp_result_summary5.csv'
 
     final_result = {
-        '16_auc_after_train': [],
-        '32_auc_after_train': [],
-        '64_auc_after_train': [],
-        '96_auc_after_train': []
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
     }
 
 
@@ -156,7 +148,7 @@ def main():
 
         # Load model
         input_shape=len(train_data[3][0])
-        backbone = FNN_Relu(num_classes=1600, input_shape=input_shape)
+        backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
         model = ProtoNet(backbone).cuda()
 
         # Pretrain on random assays
@@ -176,7 +168,6 @@ def main():
             loss_value = fit(support_images, support_labels, query_images, query_labels, criterion, optimizer, model)
             if episode_index % step_size == 0:
                 scheduler.step()
-                #print(optimizer)
             all_loss.append(loss_value)
 
         '''
@@ -218,7 +209,7 @@ def main():
                 test_loader, 
                 #save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
             )
-            final_result[str(support_set_size)+'_auc_after_train'].append(f"{after_mean:.2f}+/-{after_std:.2f}")
+            final_result[str(support_set_size)].append(f"{after_mean:.2f}+/-{after_std:.2f}")
 
     # Create result summary dataframe
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)

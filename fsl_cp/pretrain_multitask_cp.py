@@ -5,6 +5,7 @@ from utils.metrics import multitask_bce
 import json
 import pytorch_lightning as pl
 import os
+import pandas as pd
 from torch.utils.data import DataLoader
 import torch
 from pytorch_lightning import loggers as pl_loggers
@@ -12,11 +13,13 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 
-def main():
+def main(
+        seed=69
+        ):
 
     ### Seed
-    pl.seed_everything(69)
-
+    pl.seed_everything(seed)
+    torch.manual_seed(seed)
 
     ### Inits
     dev_run = False
@@ -29,11 +32,8 @@ def main():
     ### Path inits 
     data_folder = '/home/son.ha/FSL_CP/data/output'
     hparam_file = '/home/son.ha/FSL_CP/fsl_cp/hparams/fnn_multitask.json'
-    cp_f_path = [os.path.join(data_folder, i) for i in [
-        'norm_CP_feature_df.csv',
-        #'norm_ECFP_feature_df.csv',
-        #'norm_RDKit_feature_df.csv',
-    ]]
+    cp_f_path = os.path.join(data_folder, 'norm_CP_feature_df.csv') 
+    feature_df = pd.read_csv(cp_f_path)
     logs_path = '/home/son.ha/FSL_CP/logs/multitask_only_cp_pretrain'
 
 
@@ -50,8 +50,7 @@ def main():
     train_val_data = multitask_pretrain_cp_dataset(
         assay_codes=train_val_split,
         label_df_path=os.path.join(data_folder, 'FINAL_LABEL_DF.csv'),
-        cp_f_path=cp_f_path,
-        inference=False,
+        feature_df=feature_df,
     )
 
     train_size = int(fraction_train_set * len(train_val_data))

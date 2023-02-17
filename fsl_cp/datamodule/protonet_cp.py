@@ -2,15 +2,12 @@ from torch.utils.data import Dataset
 from typing import List, Tuple
 import pandas as pd
 import torch
-import os
-import jsonlines
 import random
 from torch import Tensor
 from torch.utils.data import Sampler
 from sklearn.model_selection import train_test_split
 import warnings
 from pandas.errors import DtypeWarning
-import numpy as np
 
 warnings.filterwarnings("ignore", category=DtypeWarning)
 
@@ -185,9 +182,3 @@ class protonet_cp_sampler(Sampler):
             true_class_ids,
         )
     
-'''
-TODO:
-Delete duplicates of protonet_cp and datamodule.protonet_img
-Add "several tasks per epoch" to the datamodule of ProtoNet
-Add validation to all models
-'''

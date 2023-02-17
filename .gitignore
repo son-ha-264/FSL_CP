@@ -133,7 +133,9 @@ data/
 output/
 logs/
 lightning_logs/
-data_output/
+result/result_summary2/
 
 # Temporary files
 temp/
+__pycache__/
+.vscode/
