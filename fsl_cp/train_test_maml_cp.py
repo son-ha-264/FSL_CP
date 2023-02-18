@@ -85,7 +85,7 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 def main(
     support_set_sizes = [8, 16, 32, 64, 96],
     query_set_size = 32,
-    num_episodes_train = 3000,
+    num_episodes_train = 2000,# 60k?
     num_episodes_test = 100,
     meta_batch_size=32,
     adaptation_steps=1,
@@ -115,13 +115,12 @@ def main(
 
     ### Paths inits
     HOME = os.environ['HOME']
-    data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
     result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_auroc_result_summary.csv') 
     result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_dauprc_result_summary.csv') 
-    json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'
-    label_df_path= '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
-    cp_f_path=['/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv']
+    json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json') 
+    label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
+    cp_f_path=[os.path.join(HOME, 'FSL_CP/data/output/norm_CP_feature_df.csv')]
 
     final_result_auroc = {
         '8': [],
@@ -132,11 +131,11 @@ def main(
     }
 
     final_result_dauprc = {
-            '8': [],
-            '16': [],
-            '32': [],
-            '64': [],
-            '96': []
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
     }
 
     ### Load the assay keys
@@ -179,7 +178,7 @@ def main(
         input_shape=len(train_data[3][0])
         model= FNN_Relu(num_classes=1, input_shape=input_shape)
         model.to(device)
-        maml = l2l.algorithms.MAML(model, lr=0.5, first_order=True)
+        maml = l2l.algorithms.MAML(model, lr=0.5, first_order=False)
         opt = optim.Adam(maml.parameters(), 0.001)
         #loss = nn.CrossEntropyLoss()
         loss = multitask_bce()

@@ -1,4 +1,5 @@
 import torch 
+import argparse
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -11,6 +12,7 @@ from datamodule.protonet_cp import protonet_cp_dataset, protonet_cp_sampler
 import os
 import pandas as pd
 from torch.optim.lr_scheduler import StepLR
+from utils.metrics import delta_auprc
 
 
 def fit(
@@ -20,16 +22,17 @@ def fit(
         query_labels: torch.Tensor,
         criterion, 
         optimizer,
-        model
+        model,
+        device
     ) -> float:
     """ Fit function for pretraining protonet. 
     """
     optimizer.zero_grad()
     classification_scores = model(
-        support_images.cuda(), support_labels.cuda(), query_images.cuda()
+        support_images.to(device), support_labels.to(device), query_images.to(device)
     )
 
-    loss = criterion(classification_scores, query_labels.cuda())
+    loss = criterion(classification_scores, query_labels.to(device))
     loss.backward()
     optimizer.step()
 
@@ -42,24 +45,25 @@ def evaluate_on_one_task(
     support_labels: torch.Tensor,
     query_images: torch.Tensor,
     query_labels: torch.Tensor,
+    device
 ):
     """
     Returns the prediction of the protonet model and the real label
     """
     return (
         torch.max(
-            model(support_images.cuda(), support_labels.cuda(), query_images.cuda())
+            model(support_images.to(device), support_labels.to(device), query_images.to(device))
             .detach()
             .data,
             1,
         )[1]).cpu().numpy(), query_labels.cpu().numpy()
 
 
-def evaluate(model, data_loader: DataLoader, save_path=None):
+def evaluate(model, data_loader: DataLoader, device):
     """ Evaluate the model on a DataLoader object
     """
-    scores = []
-    model.eval()
+    AUROC_scores = []
+    dAUPRC_scores = []
     with torch.no_grad():
         for episode_index, (
             support_images,
@@ -70,14 +74,15 @@ def evaluate(model, data_loader: DataLoader, save_path=None):
         ) in enumerate(data_loader):
 
             y_pred, y_true = evaluate_on_one_task(
-                model, support_images, support_labels, query_images, query_labels
+                model, support_images, support_labels, query_images, query_labels, device
             )
-            score = roc_auc_score(y_true, y_pred)
-            scores.append(score)
-    if save_path:
-        np.save(save_path, np.array(scores))
-    return np.mean(scores), np.std(scores)
-
+            AUROC_score = roc_auc_score(y_true, y_pred)
+            dAUPRC_score = delta_auprc(y_true, y_pred)
+            AUROC_scores.append(AUROC_score)
+            dAUPRC_scores.append(dAUPRC_score)
+    #if save_path:
+    #    np.save(save_path, np.array(scores))
+    return np.mean(AUROC_scores), np.std(AUROC_scores), np.mean(dAUPRC_scores), np.std(dAUPRC_scores)
 
 def main(
         seed=69
@@ -86,6 +91,21 @@ def main(
     np.random.seed(seed)
     torch.manual_seed(seed)
     
+    ### Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--device', type=str, default='cuda:0',
+        help='cuda, cuda:0 or cpu')
+    args = parser.parse_args()
+
+    device = args.device
+    
+    ### Inits
+    if device == 'cpu':
+        device = torch.device('cpu')
+    elif 'cuda' in device and torch.cuda.device_count():
+        device = torch.device(device)
+
     ### Inits
     support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
@@ -93,16 +113,24 @@ def main(
     num_episodes_test = 100
     step_size = 20000
 
-    json_path = '/home/son.ha/FSL_CP/data/output/data_split.json'
-    label_df_path= '/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv'
-    cp_f_path=[
-        '/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv'
-    ]
-    temp_folder = '/home/son.ha/FSL_CP/temp/np_files'
-    df_assay_id_map_path = "/home/son.ha/FSL_CP/data/output/assay_target_map.csv"
-    result_summary_path = '/home/son.ha/FSL_CP/result/result_summary/protonet_cp_result_summary5.csv'
+    HOME = os.environ['HOME']
 
-    final_result = {
+    json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
+    label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
+    cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
+    df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
+
+    final_result_auroc = {
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
+    }
+
+    final_result_dauprc = {
         '8': [],
         '16': [],
         '32': [],
@@ -119,7 +147,8 @@ def main(
     test_split = data['test']
  
     train_split = train_split + val_split
-    final_result['ASSAY_ID'] = test_split
+    final_result_auroc['ASSAY_ID'] = test_split
+    final_result_dauprc['ASSAY_ID'] = test_split
     
 
     ### Loop through all support set size, performing few-shot prediction:
@@ -149,7 +178,7 @@ def main(
         # Load model
         input_shape=len(train_data[3][0])
         backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
-        model = ProtoNet(backbone).cuda()
+        model = ProtoNet(backbone).to(device)
 
         # Pretrain on random assays
         criterion = nn.CrossEntropyLoss()
@@ -165,7 +194,7 @@ def main(
             query_labels,
             _,
         ) in enumerate(train_loader):
-            loss_value = fit(support_images, support_labels, query_images, query_labels, criterion, optimizer, model)
+            loss_value = fit(support_images, support_labels, query_images, query_labels, criterion, optimizer, model, device)
             if episode_index % step_size == 0:
                 scheduler.step()
             all_loss.append(loss_value)
@@ -204,20 +233,26 @@ def main(
             )
 
             # Performance after pretraining
-            after_mean, after_std = evaluate(
+            auroc_mean, auroc_std, dauprc_mean, dauprc_std = evaluate(
                 model, 
                 test_loader, 
+                device
                 #save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
             )
-            final_result[str(support_set_size)].append(f"{after_mean:.2f}+/-{after_std:.2f}")
+            final_result_auroc[str(support_set_size)].append(f"{auroc_mean:.2f}+/-{auroc_std:.2f}")
+            final_result_dauprc[str(support_set_size)].append(f"{dauprc_mean:.2f}+/-{dauprc_std:.2f}")
 
     # Create result summary dataframe
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)
     df_assay_id_map = df_assay_id_map.astype({'ASSAY_ID': str})
-    df_score = pd.DataFrame(data=final_result)
-    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
-    df_final.to_csv(result_summary_path, index=False)
 
+    df_score = pd.DataFrame(data=final_result_auroc)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path1, index=False)
+
+    df_score = pd.DataFrame(data=final_result_dauprc)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path2, index=False)
 
 if __name__ == '__main__':
     main()

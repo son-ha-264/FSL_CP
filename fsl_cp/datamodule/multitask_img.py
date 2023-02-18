@@ -1,4 +1,5 @@
 import random
+import os
 import torch
 from typing import Dict, List
 import numpy as np
@@ -91,7 +92,9 @@ class multitask_pretrain_img_dataset(Dataset):
     """
     def __init__(self,
                 assay_codes: List[str],
+                image_path:str,
                 label_df: pd.core.frame.DataFrame,
+                transform=None
                                 
     ):
         super(multitask_pretrain_img_dataset).__init__()
@@ -101,10 +104,13 @@ class multitask_pretrain_img_dataset(Dataset):
         self.label_df_before['ASSAY'] = self.label_df_before['ASSAY'].astype(str)
         self.label_df_before = self.label_df_before[self.label_df_before['ASSAY'].isin(assay_codes)]
         self.label_df_before = self.label_df_before.reset_index(drop=True)
-        self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'VIEWS_LIST']].pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
+        self.label_df = self.label_df_before[['LABEL', 'ASSAY', 'SAMPLE_KEY_VIEW']].pivot_table(index='SAMPLE_KEY_VIEW', columns='ASSAY')
         self.label_df.columns = self.label_df.columns.droplevel(0)
         self.label_df = self.label_df.reset_index(drop=False)
         self.label_df = self.label_df.fillna(-1)
+
+        self.image_path = image_path
+        self.transform = transform
 
     def __len__(self):
         return len(self.label_df)
@@ -112,15 +118,14 @@ class multitask_pretrain_img_dataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.item()
-        cp_f_df_idx = self.label_df['NUM_ROW_CP_FEATURES'][idx]
-        x = torch.tensor(self.feature_df.iloc[cp_f_df_idx, :],dtype=torch.float)
+        filename = self.label_df.loc[idx, 'SAMPLE_KEY_VIEW'] + '.npz'
+        filename = os.path.join(self.image_path, filename)
+        x = np.load(filename)["sample"]
         y = torch.tensor(self.label_df.iloc[idx, 1:],dtype=torch.float)
+        if self.transform:
+            x = self.transform(x)
         return x,y 
 
-    def _change_assay_to_columns(self, df):
-        newdf = df.pivot_table(index='NUM_ROW_CP_FEATURES', columns='ASSAY')
-        newdf.columns = newdf.columns.droplevel(0)
-        return(newdf)
 
 def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location=torch.device('cuda:0')):
     """Return FNN with trained weights 
@@ -143,5 +148,6 @@ def each_view_a_datapoint(df):
     Used for multitask pretraining.'''
     df['VIEWS_LIST'] = df['VIEWS'].apply(lambda s : s.split('_'))
     df = df.explode('VIEWS_LIST', ignore_index=True)
-    df['VIEWS_LIST'] = df[['SAMPLE_KEY', 'VIEWS_LIST']].agg('-'.join, axis=1)
+    df['SAMPLE_KEY_VIEW'] = df[['SAMPLE_KEY', 'VIEWS_LIST']].agg('-'.join, axis=1)
+    df = df.drop(columns=['VIEWS_LIST'])
     return df
