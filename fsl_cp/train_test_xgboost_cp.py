@@ -345,7 +345,7 @@ def main():
         output_dict(df_final_daupcr, output_daucpr, ls_assay, i)      
         
         save_out(output_auc,'auroc')
-        save_out(output_daucpr,'daupcr')
+        save_out(output_daucpr,'dauprc')
     
     
     return None

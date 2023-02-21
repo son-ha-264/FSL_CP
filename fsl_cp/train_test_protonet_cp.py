@@ -13,6 +13,7 @@ import os
 import pandas as pd
 from torch.optim.lr_scheduler import StepLR
 from utils.metrics import delta_auprc
+from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score
 
 
 def fit(
@@ -64,6 +65,9 @@ def evaluate(model, data_loader: DataLoader, device):
     """
     AUROC_scores = []
     dAUPRC_scores = []
+    bacc_scores = []
+    F1_scores = []
+    kappa_scores = []
     with torch.no_grad():
         for episode_index, (
             support_images,
@@ -78,11 +82,18 @@ def evaluate(model, data_loader: DataLoader, device):
             )
             AUROC_score = roc_auc_score(y_true, y_pred)
             dAUPRC_score = delta_auprc(y_true, y_pred)
+            bacc_score = balanced_accuracy_score(y_true, y_pred, adjusted=True)
+            F1_score = f1_score(y_true, y_pred)
+            kappa_score = cohen_kappa_score(y_true, y_pred)
+
             AUROC_scores.append(AUROC_score)
             dAUPRC_scores.append(dAUPRC_score)
-    #if save_path:
-    #    np.save(save_path, np.array(scores))
-    return np.mean(AUROC_scores), np.std(AUROC_scores), np.mean(dAUPRC_scores), np.std(dAUPRC_scores)
+            bacc_scores.append(bacc_score)
+            F1_scores.append(F1_score)
+            kappa_scores.append(kappa_score)
+
+    return np.mean(AUROC_scores), np.std(AUROC_scores), np.mean(dAUPRC_scores), np.std(dAUPRC_scores), np.mean(bacc_scores), np.std(bacc_scores), np.mean(F1_scores), np.std(F1_scores), np.mean(kappa_scores), np.std(kappa_scores)
+           
 
 def main(
         seed=69
@@ -119,9 +130,18 @@ def main(
     label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
     cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
+
     result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
     result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
+    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_bacc_result_summary.csv') 
+    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_f1_result_summary.csv') 
+    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_kappa_result_summary.csv') 
+
+
+    ### Final result dictionary
     final_result_auroc = {
         '8': [],
         '16': [],
@@ -131,6 +151,30 @@ def main(
     }
 
     final_result_dauprc = {
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
+    }
+
+    final_result_bacc = {
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
+    }
+
+    final_result_f1 = {
+        '8': [],
+        '16': [],
+        '32': [],
+        '64': [],
+        '96': []
+    }
+
+    final_result_kappa = {
         '8': [],
         '16': [],
         '32': [],
@@ -149,6 +193,9 @@ def main(
     train_split = train_split + val_split
     final_result_auroc['ASSAY_ID'] = test_split
     final_result_dauprc['ASSAY_ID'] = test_split
+    final_result_bacc['ASSAY_ID'] = test_split
+    final_result_f1['ASSAY_ID'] = test_split
+    final_result_kappa['ASSAY_ID'] = test_split
     
 
     ### Loop through all support set size, performing few-shot prediction:
@@ -233,14 +280,16 @@ def main(
             )
 
             # Performance after pretraining
-            auroc_mean, auroc_std, dauprc_mean, dauprc_std = evaluate(
+            auroc_mean, auroc_std, dauprc_mean, dauprc_std, bacc_mean, bacc_std, f1_mean, f1_std, kappa_mean, kappa_std = evaluate(
                 model, 
                 test_loader, 
                 device
-                #save_path=os.path.join(temp_folder, f"protonet_after_{support_set_size}_{test_assay}.npy")
             )
             final_result_auroc[str(support_set_size)].append(f"{auroc_mean:.2f}+/-{auroc_std:.2f}")
             final_result_dauprc[str(support_set_size)].append(f"{dauprc_mean:.2f}+/-{dauprc_std:.2f}")
+            final_result_bacc[str(support_set_size)].append(f"{bacc_mean:.2f}+/-{bacc_std:.2f}")
+            final_result_f1[str(support_set_size)].append(f"{f1_mean:.2f}+/-{f1_std:.2f}")
+            final_result_kappa[str(support_set_size)].append(f"{kappa_mean:.2f}+/-{kappa_std:.2f}")
 
     # Create result summary dataframe
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)
@@ -253,6 +302,18 @@ def main(
     df_score = pd.DataFrame(data=final_result_dauprc)
     df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
     df_final.to_csv(result_summary_path2, index=False)
+
+    df_score = pd.DataFrame(data=final_result_bacc)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path3, index=False)
+
+    df_score = pd.DataFrame(data=final_result_f1)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path4, index=False)
+
+    df_score = pd.DataFrame(data=final_result_kappa)
+    df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
+    df_final.to_csv(result_summary_path5, index=False)
 
 if __name__ == '__main__':
     main()

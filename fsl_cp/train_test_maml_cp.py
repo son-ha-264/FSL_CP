@@ -85,7 +85,7 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 def main(
     support_set_sizes = [8, 16, 32, 64, 96],
     query_set_size = 32,
-    num_episodes_train = 2000,# 60k?
+    num_episodes_train = 60000,
     num_episodes_test = 100,
     meta_batch_size=32,
     adaptation_steps=1,
