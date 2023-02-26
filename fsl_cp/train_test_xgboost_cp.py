@@ -11,8 +11,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn import metrics
 from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, balanced_accuracy_score, f1_score, cohen_kappa_score
 from tqdm import tqdm
+
+import warnings
+warnings.simplefilter("ignore", UserWarning)
 
 
 
@@ -23,7 +26,7 @@ def main():
     
 
     
-    HOME = os.environ['HOME'] + '/FSL_CP/'
+    HOME = os.environ['HOME']
 
 
     #parser for optional program settings
@@ -84,6 +87,9 @@ def main():
     #dictionary for metric outputs
     output_auc = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
     output_daucpr = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
+    output_bacc = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
+    output_f1 = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
+    output_kappa = {'ASSAY_ID':[],'ASSAY_CHEMBL_ID':[], 8:[],16:[],32:[],64:[],96:[]}
 
 
 
@@ -216,9 +222,9 @@ def main():
     save_auc = args.savmet
     
     if save_auc == True:
-        print('auc and delta aucpr will be saved')
+        print('metrics will be saved')
     else:
-        print('auc and delta aucpr will not be saved')
+        print('metrics will not be saved')
 
 
 
@@ -233,7 +239,7 @@ def main():
 
 
     #initial for-loop that starts process for every assay we chose
-    for i in tqdm(range(len(ls_assay))):
+    for i in tqdm(range(len(ls_assay)), desc='Number of test assays'):
         #name = ls_assay[i]
 
              
@@ -243,6 +249,9 @@ def main():
 
         df_final_auc = pd.DataFrame()
         df_final_daupcr = pd.DataFrame()
+        df_final_bacc = pd.DataFrame()
+        df_final_f1 = pd.DataFrame()
+        df_final_kappa = pd.DataFrame()
 
         #initialisation of the training-set
         X = df_testing.iloc[:,1:]#.to_numpy()
@@ -251,7 +260,7 @@ def main():
 
 
         #for-loop for every support set size
-        for j in tqdm(range(len(ls_sss)), leave=False):
+        for j in tqdm(range(len(ls_sss)), leave=False, desc='Support set size'):
 
 
             #reset dataframe of the parameters after each finished  loop
@@ -259,12 +268,14 @@ def main():
 
             #reset the auc dataframe
             df_auc = pd.DataFrame(columns=ls_sss, index=range(total_iter_range)) 
-
             df_daupcr = pd.DataFrame(columns=ls_sss, index=range(total_iter_range))
+            df_bacc = pd.DataFrame(columns=ls_sss, index=range(total_iter_range)) 
+            df_f1 = pd.DataFrame(columns=ls_sss, index=range(total_iter_range))
+            df_kappa = pd.DataFrame(columns=ls_sss, index=range(total_iter_range)) 
                         
 
 
-            for k in tqdm(range(total_iter_range), leave=False):
+            for k in tqdm(range(total_iter_range), leave=False, desc='Number of repeats'):
                 
 
 
@@ -312,26 +323,35 @@ def main():
 
                 #auc metric
                 auc = sk.metrics.roc_auc_score(y_query,y_pred)
-                
                 #Delta AUPRC
                 delta = delta_auprc(y_query,y_pred)
+                #Balanced Accuracy
+                bacc = balanced_accuracy_score(y_query, y_pred)
+                #F1
+                F1 = f1_score(y_query, y_pred)
+                #Cohen's Kappa
+                kappa = cohen_kappa_score(y_query, y_pred)
                 
                 
 
-                #adding auc value to auc datafrae
+                #adding values to dataframes
                 df_auc.iat[k,j] = auc
-                
-                
-                #adding delta aupcr value to delta aucpr dataframe
                 df_daupcr.iat[k,j] = delta
-                
+                df_bacc.iat[k,j] = bacc
+                df_f1.iat[k,j] = F1
+                df_kappa.iat[k,j] = kappa                
 
 
             df_temp = df_auc[ls_sss[j]]
             df_final_auc = pd.concat([df_final_auc,df_temp],axis=1)
-            
             df_temp2 = df_daupcr[ls_sss[j]]
             df_final_daupcr = pd.concat([df_final_daupcr,df_temp2],axis=1)
+            df_temp3 = df_bacc[ls_sss[j]]
+            df_final_bacc = pd.concat([df_final_bacc,df_temp3],axis=1)
+            df_temp4 = df_f1[ls_sss[j]]
+            df_final_f1 = pd.concat([df_final_f1,df_temp4],axis=1)
+            df_temp5 = df_kappa[ls_sss[j]]
+            df_final_kappa = pd.concat([df_final_kappa,df_temp5],axis=1)
             
 
 
@@ -342,10 +362,16 @@ def main():
 
         
         output_dict(df_final_auc, output_auc, ls_assay, i)
-        output_dict(df_final_daupcr, output_daucpr, ls_assay, i)      
+        output_dict(df_final_daupcr, output_daucpr, ls_assay, i)  
+        output_dict(df_final_bacc, output_bacc, ls_assay, i)
+        output_dict(df_final_f1, output_f1, ls_assay, i)  
+        output_dict(df_final_kappa, output_kappa, ls_assay, i)    
         
         save_out(output_auc,'auroc')
         save_out(output_daucpr,'dauprc')
+        save_out(output_bacc,'bacc')
+        save_out(output_f1,'f1')
+        save_out(output_kappa,'kappa')
     
     
     return None

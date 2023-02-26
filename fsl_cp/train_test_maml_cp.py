@@ -36,13 +36,13 @@ def fast_adapt(
 
     # Adapt model
     for step in range(adaptation_steps):
-        adaptation_error = loss(learner(support_f), support_labels)
+        adaptation_error = loss(torch.squeeze(learner(support_f)), support_labels.float())
         learner.adapt(adaptation_error)
 
     # Evaluate the adapted model
     predictions = learner(query_f)
-    evaluation_error = loss(predictions, query_labels)
-    evaluation_accuracy = accuracy(predictions, query_labels)
+    evaluation_error = loss(torch.squeeze(predictions), query_labels)
+    evaluation_accuracy = accuracy(torch.squeeze(predictions), query_labels)
     #evaluation_AUROC = roc_auc_score(query_labels.cpu().numpy(), predictions.cpu().numpy())
     #evaluation_dAUPRC = delta_auprc(query_labels.cpu().numpy(), predictions.cpu().numpy())
     return evaluation_error, evaluation_accuracy#, evaluation_AUROC, evaluation_dAUPRC
@@ -75,6 +75,8 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 
         # Evaluate the adapted model
         predictions = learner(query_f)
+        s = torch.nn.Sigmoid()
+        #predictions = s(predictions)[:,1]
         AUROC_score = roc_auc_score(query_labels, predictions.detach().cpu().numpy())
         dAUPRC_score = delta_auprc(query_labels, predictions.detach().cpu().numpy())
         AUROC_scores.append(AUROC_score)
@@ -85,7 +87,7 @@ def evaluate(original_maml, data_loader, device, adaptation_steps, loss):
 def main(
     support_set_sizes = [8, 16, 32, 64, 96],
     query_set_size = 32,
-    num_episodes_train = 60000,
+    num_episodes_train = 5,#500,#60000,
     num_episodes_test = 100,
     meta_batch_size=32,
     adaptation_steps=1,
@@ -145,7 +147,7 @@ def main(
     val_split = data['val']
     test_split = data['test']
  
-    train_split = train_split + val_split
+    #train_split = train_split + val_split
     final_result_auroc['ASSAY_ID'] = test_split
     final_result_dauprc['ASSAY_ID'] = test_split
 
@@ -179,9 +181,9 @@ def main(
         model= FNN_Relu(num_classes=1, input_shape=input_shape)
         model.to(device)
         maml = l2l.algorithms.MAML(model, lr=0.5, first_order=False)
-        opt = optim.Adam(maml.parameters(), 0.001)
+        opt = optim.Adam(maml.parameters(), 0.003)
         #loss = nn.CrossEntropyLoss()
-        loss = multitask_bce()
+        loss = nn.BCEWithLogitsLoss()#multitask_bce()
 
         # Train
         #model.train()

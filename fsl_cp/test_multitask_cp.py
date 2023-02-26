@@ -47,7 +47,7 @@ def main(
     num_repeat = 100
     support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
-    max_epochs = 50
+    max_epochs = 20
     loss_function = multitask_bce()
     sigmoid = torch.nn.Sigmoid()
 
@@ -141,10 +141,10 @@ def main(
 
 
                 ### Create DataLoader objects
-                support_loader = DataLoader(support_set, batch_size=256,
-                                        shuffle=False, num_workers=20)
+                support_loader = DataLoader(support_set, batch_size=int(support_set_size/4),
+                                        shuffle=True, num_workers=20)
                 
-                query_loader = DataLoader(query_set, batch_size=256,
+                query_loader = DataLoader(query_set, batch_size=query_set_size,
                                         shuffle=False, num_workers=20)
 
                 
