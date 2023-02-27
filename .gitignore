@@ -140,3 +140,4 @@ temp/
 __pycache__/
 .vscode/
 weight/
+weights/
