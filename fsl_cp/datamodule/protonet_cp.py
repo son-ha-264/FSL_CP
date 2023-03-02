@@ -145,6 +145,7 @@ class protonet_cp_sampler(Sampler):
                 except:
                     if self.specific_assay:
                         raise ValueError('Choose another assay that has more datapoints')
+                    pass
                 else: 
                     bad_task = False
             

@@ -157,8 +157,6 @@ def main(seed=69):
     HOME = os.environ['HOME']
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
     label_df_path = os.path.join(HOME,'FSL_CP/data/output/FINAL_LABEL_DF.csv')
-    #image_path = '/mnt/scratch/Son_cellpainting/my_cp_images/'
-    image_path = image_path
     df_assay_id_map_path = os.path.join(HOME,'FSL_CP/data/output/assay_target_map.csv')
 
     result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_img_auroc_result_summary.csv') 
@@ -224,7 +222,6 @@ def main(seed=69):
     val_split = data['val']
     test_split = data['test']
  
-    #train_split = train_split + val_split
     final_result_auroc['ASSAY_ID'] = test_split
     final_result_dauprc['ASSAY_ID'] = test_split
     final_result_bacc['ASSAY_ID'] = test_split

@@ -6,10 +6,10 @@ import argparse
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 
-
 import torch
 from torch.nn.modules import Linear
 import torch.optim as optim
+import torch.nn as nn
 
 from utils.metrics import multitask_bce
 from datamodule.multitask_cp import prepare_support_query_multitask_cp, load_FNN_with_trained_weights
@@ -44,11 +44,11 @@ def main(
         device = torch.device(device)
 
     ### Inits
-    num_repeat = 100
+    num_repeat = 50
     support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
-    max_epochs = 20
-    loss_function = multitask_bce()
+    max_epochs = 10
+    loss_function = nn.BCEWithLogitsLoss()
     sigmoid = torch.nn.Sigmoid()
 
     ### Paths inits
@@ -149,20 +149,23 @@ def main(
 
                 
                 ### Load pretrained models
-                fnn_pretrained = load_FNN_with_trained_weights(
-                    path_to_weight=path_to_weight,
-                    input_shape=len(support_set[3][0]),
-                )
-                fnn_pretrained.classifier[10] = Linear(in_features=2048, out_features=1, bias=True)
-                fnn_pretrained = fnn_pretrained.to(device)
-                
+                #fnn_pretrained = load_FNN_with_trained_weights(
+                #    path_to_weight=path_to_weight,
+                #    input_shape=len(support_set[3][0]),
+                #)
+                #fnn_pretrained.classifier[10] = Linear(in_features=2048, out_features=1, bias=True)
+                #fnn_pretrained = fnn_pretrained.to(device)
+
+                fnn_pretrained = FNN_Relu(input_shape=len(support_set[3][0]), num_classes=1).to(device)
+
                 # Fine-tune
-                optimizer = optim.SGD(fnn_pretrained.parameters(), lr=0.001, momentum=0.9)
+                #optimizer = optim.SGD(fnn_pretrained.parameters(), lr=0.001, momentum=0.9)
+                optimizer = optim.Adam(fnn_pretrained.parameters(), 0.001)
                 for epoch in range(max_epochs):
                         for i, (inputs, labels) in enumerate(support_loader, 0):
                             optimizer.zero_grad()
                             outputs = fnn_pretrained(inputs.to(device))
-                            loss = loss_function(outputs, labels.to(device))
+                            loss = loss_function(torch.squeeze(outputs), labels.to(device))
                             loss.backward()
                             torch.nn.utils.clip_grad_norm_(fnn_pretrained.parameters(), max_norm=5)
                             optimizer.step()
@@ -182,7 +185,7 @@ def main(
                 true_array = labels.detach().numpy()
                 list_auroc.append(roc_auc_score(true_array, pred_array))
                 list_dauprc.append(delta_auprc(true_array, pred_array))                
-                list_bacc.append(balanced_accuracy_score(true_array, np.rint(pred_array), adjusted=False))
+                list_bacc.append(balanced_accuracy_score(true_array, np.rint(pred_array), adjusted=True))
                 list_f1.append(f1_score(true_array, np.rint(pred_array)))
                 list_kappa.append(cohen_kappa_score(true_array, np.rint(pred_array)))
                 

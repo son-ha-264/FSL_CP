@@ -326,7 +326,7 @@ def main():
                 #Delta AUPRC
                 delta = delta_auprc(y_query,y_pred)
                 #Balanced Accuracy
-                bacc = balanced_accuracy_score(y_query, y_pred)
+                bacc = balanced_accuracy_score(y_query, y_pred, adjusted=True)
                 #F1
                 F1 = f1_score(y_query, y_pred)
                 #Cohen's Kappa

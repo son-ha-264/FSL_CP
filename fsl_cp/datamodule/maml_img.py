@@ -1,19 +1,22 @@
-from torch.utils.data import Dataset
+import os
+import random
+import warnings
 from typing import List, Tuple
 import pandas as pd
+import numpy as np
+from pandas.errors import DtypeWarning
+
 import torch
-import random
 from torch import Tensor
 from torch.utils.data import Sampler
-from sklearn.model_selection import train_test_split
-import warnings
-from pandas.errors import DtypeWarning
+from torch.utils.data import Dataset
+
 from .utils import task_sample
 
 warnings.filterwarnings("ignore", category=DtypeWarning)
 
 class maml_img_dataset(Dataset):
-    """DataLoader for MAML running on CP profiles. 
+    """DataLoader for ProtoNet running on CP profiles. 
        Input JSONL files, convert them to lists of inputs and labels
 
     Args:
@@ -25,24 +28,21 @@ class maml_img_dataset(Dataset):
     def __init__(self, 
                 assay_codes: List[str], 
                 label_df_path: str,
-                cp_f_path: List[str],
+                image_path: str,
+                transform=None
     ):
         super().__init__()
+
+        # Miscellanous inits
+        self.image_path = image_path
+        self.transform = transform
 
         # Load label csv file
         self.label_df = pd.read_csv(label_df_path)
         self.label_df['ASSAY'] = self.label_df['ASSAY'].astype(str)
         self.label_df = self.label_df[self.label_df['ASSAY'].isin(assay_codes)]
         self.label_df = self.label_df.reset_index(drop=True)
-
-        # Read feature matrices and concat them
-        list_feature_df = []
-        for path in cp_f_path:
-            feature_df = pd.read_csv(path)
-            feature_df = feature_df.dropna(axis=1, how='any')
-            feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
-            list_feature_df.append(feature_df)
-        self.feature_df = pd.concat(list_feature_df, axis=1)
+        self.label_df['SAMPLE_KEY_VIEW'] = self.label_df[['SAMPLE_KEY', 'VIEWS']].agg('-'.join, axis=1).str[0:11]
 
     def __len__(self):
         return len(self.label_df)
@@ -50,25 +50,34 @@ class maml_img_dataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.item()
-        cp_f_df_idx = self.label_df['NUM_ROW_CP_FEATURES'][idx]
-        x = torch.tensor(self.feature_df.iloc[cp_f_df_idx, :],dtype=torch.float)
-        y = self.label_df['LABEL'][idx]
+        filename = self.label_df.loc[idx, 'SAMPLE_KEY_VIEW'] + '.npz'
+        filename = os.path.join(self.image_path, filename)
+        x = np.load(filename)["sample"]
+        y = self.label_df.loc[idx, 'LABEL']
+        if self.transform:
+            x = self.transform(x)
         return x,y 
 
-    def get_label_df(self):
+    def get_df(self):
         return self.label_df
+    
 
 
-
-class maml_cp_sampler(Sampler):
+class maml_img_sampler(Sampler):
     """
-    1. Sample n tasks/assays from a total of N tasks
-    2. For each task,
-        a. Sample support and query compounds (wrt to compounds, not views)
-        b. Return CP features and labels
-    3. Return an iterator that yield () at each iteration
+    Custom sampler for few-shot prediction using ProtoNet
+    When construct a Pytorch DataLoader, set the collate_fn argument as: 
 
-    Sampler (batch_sampler arg in DataLoader) yields a list of keys at a time
+        collate_fn=train_sampler.episodic_collate_fn
+
+    (refer to the script 'train_test_protonet_img.py' for exact usage)
+
+    Args:
+        task_dataset: A protonet_img_dataset data object
+        support_set_size: size of support set (=2 * num_shots)
+        query_set_size: size of query set
+        num_episodes: Number of training episodes
+        specific_assay: Code of one assay you want to sample (mainly for debugging)
     """
     def __init__(
         self,
@@ -77,23 +86,22 @@ class maml_cp_sampler(Sampler):
         query_set_size: int,
         meta_batch_size:int, 
         num_episodes: int,
+        sample_method = 'stratify',
         specific_assay = None,
-        sample_method = 'stratify'
     ):
         super().__init__(data_source=None)
 
-        # Inits
+        # Misc inits
         self.support_set_size = support_set_size
         self.query_set_size = query_set_size
         self.num_episodes = num_episodes * meta_batch_size
         self.task_dataset = task_dataset
-        self.label_df = task_dataset.get_label_df()
+        self.df = self.task_dataset.get_df()
         self.specific_assay = specific_assay
         self.sample_method = sample_method
-        assert self.sample_method in ['stratify', 'random']
 
         # Extract list of assays
-        self.assay_list = list(self.label_df['ASSAY'].unique())
+        self.assay_list = list(self.df['ASSAY'].unique())
 
     def __len__(self):
         return self.num_episodes
@@ -102,6 +110,7 @@ class maml_cp_sampler(Sampler):
         for _ in range(self.num_episodes):
             
             bad_task = True
+            # If anything wrong with the sampling process (due to data), just samples again
             while bad_task:
                 try:
                     # Randomly choose an assay to sample from
@@ -110,30 +119,18 @@ class maml_cp_sampler(Sampler):
                     else:
                         sampled_task = random.sample(self.assay_list, 1)[0]
 
-                    # Sample from the chosen assay 
-                    chosen_assay_df = self.label_df[self.label_df['ASSAY'] == sampled_task]
+                    # Sample supoprt and query sets from the chosen assay 
+                    chosen_assay_df = self.df[self.df['ASSAY'] == sampled_task]
                     support_set_df, query_set_df, label_support, label_query = task_sample(self.sample_method, chosen_assay_df, self.support_set_size, self.query_set_size)
-                    """
-                    if self.sample_method == 'stratify':
-                        chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
-                            chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.support_set_size, stratify=chosen_assay_df['LABEL']
-                        )
-                        _unused_2, query_set_df, _unused3, label_query = train_test_split(
-                            chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=chosen_assay_df_2['LABEL']
-                        )
-                    elif self.sample_method == 'random':
-                        chosen_assay_df_2, support_set_df, _unused1, label_support = train_test_split(
-                            chosen_assay_df, chosen_assay_df['LABEL'], test_size=self.support_set_size, stratify=None
-                        )
-                        _unused_2, query_set_df, _unused3, label_query = train_test_split(
-                            chosen_assay_df_2, chosen_assay_df_2['LABEL'], test_size=self.query_set_size, stratify=None
-                        )
-                    """
+
+                    # Sample sanity check
                     assert len(support_set_df) == self.support_set_size
                     assert len(query_set_df) == self.query_set_size
                     assert len(set(label_support)) == 2
                     assert len(set(label_query)) == 2
+
                     list_data_idx = list(support_set_df.index) + list(query_set_df.index) 
+
                 except:
                     if self.specific_assay:
                         raise ValueError('Choose another assay that has more datapoints')
@@ -141,7 +138,7 @@ class maml_cp_sampler(Sampler):
                 else: 
                     bad_task = False
             
-            # Yield a list, each element correspond to a row in the df
+            # Yield a list, each element correspond to the index of a row in the df
             yield list_data_idx
 
     def episodic_collate_fn(

@@ -1,5 +1,6 @@
 import os
 import json
+import timm
 import numpy as np
 import pandas as pd
 import argparse
@@ -7,14 +8,16 @@ from tqdm import tqdm
 import learn2learn as l2l
 from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score, accuracy_score, roc_auc_score
 
-from utils.metrics import delta_auprc, accuracy, multitask_bce
+from utils.metrics import delta_auprc
 from utils.models.shared_models import FNN_Relu
-from datamodule.maml_cp import maml_img_dataset, maml_cp_sampler
+from datamodule.maml_img import maml_img_dataset, maml_img_sampler
 
 import torch
 import torch.optim as optim
 import torch.nn as nn
+from utils.misc import NormalizeByImage
 from torch.utils.data import DataLoader
+import torchvision.transforms as transforms
 
 # https://github.com/learnables/learn2learn/blob/master/examples/vision/maml_miniimagenet.py
 
@@ -101,6 +104,8 @@ def main(
     num_episodes_test = 100,
     meta_batch_size=32,
     adaptation_steps=3,
+    crop_size = 100,
+    image_resize = 85,
     cuda=True,
     seed=69
     ):
@@ -112,10 +117,14 @@ def main(
     ### Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-d', '--device', type=str, default='cuda:0',
+        '-p', '--path_to_image', type=str, default='/mnt/scratch/Son_cellpainting/my_cp_images/',
+        help='Path to folder of Cell Painting images')
+    parser.add_argument(
+        '-d', '--device', type=str, default='cuda:2',
         help='gpu(cuda) or cpu')
     args = parser.parse_args()
 
+    image_path = args.path_to_image
     device = args.device
     cuda_device=device
     
@@ -127,15 +136,15 @@ def main(
 
     ### Paths inits
     HOME = os.environ['HOME']
-    df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
-    json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json') 
-    label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
-    cp_f_path=[os.path.join(HOME, 'FSL_CP/data/output/norm_CP_feature_df.csv')]
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_cp_kappa_result_summary.csv') 
+    json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
+    label_df_path = os.path.join(HOME,'FSL_CP/data/output/FINAL_LABEL_DF.csv')
+    df_assay_id_map_path = os.path.join(HOME,'FSL_CP/data/output/assay_target_map.csv')
+
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_img_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_img_dauprc_result_summary.csv') 
+    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_img_bacc_result_summary.csv') 
+    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_img_f1_result_summary.csv') 
+    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/maml_img_kappa_result_summary.csv') 
 
     ### Final result dictionary
     final_result_auroc = {
@@ -178,6 +187,14 @@ def main(
         '96': []
     }
 
+    ### Define image transformation
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.RandomCrop(crop_size),
+        transforms.Resize((image_resize,image_resize)),
+        NormalizeByImage()]) 
+    
+
     ### Load the assay keys
     with open(json_path) as f:
         data = json.load(f)
@@ -197,11 +214,12 @@ def main(
 
         # Load train data
         train_data = maml_img_dataset(
-            train_split, 
-            label_df_path= label_df_path, 
-            cp_f_path=cp_f_path
+                train_split, 
+                label_df_path= label_df_path, 
+                image_path=image_path,
+                transform=transform
         )
-        train_sampler = maml_cp_sampler(
+        train_sampler = maml_img_sampler(
                 task_dataset=train_data,
                 support_set_size=support_set_size,
                 query_set_size=query_set_size,
@@ -217,9 +235,11 @@ def main(
         )
 
         # Model
-        input_shape=len(train_data[3][0])
-        model= FNN_Relu(num_classes=1, input_shape=input_shape)
+        model = timm.create_model('resnet50', in_chans=5, pretrained=False)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, 1, bias=True) 
         model.to(device)
+
         maml = l2l.algorithms.MAML(model, lr=0.01, first_order=False)
         opt = optim.Adam(maml.parameters(), 0.001)
         loss = nn.BCEWithLogitsLoss()
@@ -263,9 +283,10 @@ def main(
             test_data = maml_img_dataset(
                     test_assays, 
                     label_df_path=label_df_path, 
-                    cp_f_path=cp_f_path
+                    image_path=image_path,
+                    transform=transform
             )
-            test_sampler = maml_cp_sampler(
+            test_sampler = maml_img_sampler(
                     task_dataset=test_data,
                     support_set_size=support_set_size,
                     query_set_size=query_set_size,

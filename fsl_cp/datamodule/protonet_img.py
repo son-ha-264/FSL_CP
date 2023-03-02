@@ -70,9 +70,6 @@ class protonet_img_dataset(Dataset):
         return self.label_df
 
 
-### TODO: strtified task sampler, random task sampler
-### https://github.com/microsoft/FS-Mol/blob/main/fs_mol/data/fsmol_task_sampler.py
-
 
 class protonet_img_sampler(Sampler):
     """
@@ -145,9 +142,9 @@ class protonet_img_sampler(Sampler):
                     list_data_idx = list(support_set_df.index) + list(query_set_df.index) 
 
                 except:
-                    # pass
                     if self.specific_assay:
                         raise ValueError('Something wrong with the sampler')
+                    pass
                 else: 
                     bad_task = False
             
