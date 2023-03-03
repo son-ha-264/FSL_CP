@@ -29,7 +29,8 @@ def fit(
         model,
         device
     ) -> float:
-    """ Fit function for pretraining protonet. 
+    """(Meta-)Train a protonet model on support and query images and labels. 
+    Return: Loss with the gradient calculated.
     """
     optimizer.zero_grad()
     classification_scores = model(
@@ -51,9 +52,7 @@ def evaluate_on_one_task(
     query_labels: torch.Tensor,
     device
 ):
-    """
-    Returns the prediction of the protonet model and the real label
-    """
+    """Returns the prediction of the protonet model and the real label."""
     return (
         torch.max(
             model(support_images.to(device), support_labels.to(device), query_images.to(device))
@@ -64,8 +63,8 @@ def evaluate_on_one_task(
 
 
 def evaluate(model, data_loader: DataLoader, device):
-    """ Evaluate the model on a DataLoader object
-    """
+    """ Evaluate the model on a DataLoader object.
+    Return means and standard deviations of 5 metrics below."""
     AUROC_scores = []
     dAUPRC_scores = []
     bacc_scores = []
@@ -96,12 +95,12 @@ def evaluate(model, data_loader: DataLoader, device):
             F1_scores.append(F1_score)
             kappa_scores.append(kappa_score)
 
-    return np.mean(AUROC_scores), np.std(AUROC_scores), np.mean(dAUPRC_scores), np.std(dAUPRC_scores), np.mean(bacc_scores), np.std(bacc_scores), np.mean(F1_scores), np.std(F1_scores), np.mean(kappa_scores), np.std(kappa_scores)
+    return np.mean(AUROC_scores), np.std(AUROC_scores), np.mean(dAUPRC_scores), np.std(dAUPRC_scores), np.mean(bacc_scores), \
+        np.std(bacc_scores), np.mean(F1_scores), np.std(F1_scores), np.mean(kappa_scores), np.std(kappa_scores)
            
 
 def eval(model, data_loader: DataLoader, device):
-    """ Evaluate the model on a DataLoader object
-    """
+    """ Evaluate the model on a DataLoader object"""
     acc_scores = []
     with torch.no_grad():
         for episode_index, (
@@ -122,26 +121,25 @@ def eval(model, data_loader: DataLoader, device):
 def main(
         seed=69
 ):
-    ### Seed
+    # Seed.
     np.random.seed(seed)
     torch.manual_seed(seed)
     
-    ### Parse arguments
+    # Parse arguments.
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-d', '--device', type=str, default='cuda:0',
         help='cuda, cuda:0 or cpu')
     args = parser.parse_args()
 
+    # Set arguments to variables.
     device = args.device
-    
-    ### Inits
     if device == 'cpu':
         device = torch.device('cpu')
     elif 'cuda' in device and torch.cuda.device_count():
         device = torch.device(device)
 
-    ### Inits
+    # Various inits.
     support_set_sizes = [8, 16, 32, 64, 96]
     query_set_size = 32
     num_episodes_train = 50000
@@ -164,7 +162,7 @@ def main(
     result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_kappa_result_summary.csv') 
 
 
-    ### Final result dictionary
+    # Final result dictionary.
     final_result_auroc = {
         '8': [],
         '16': [],
@@ -172,7 +170,6 @@ def main(
         '64': [],
         '96': []
     }
-
     final_result_dauprc = {
         '8': [],
         '16': [],
@@ -180,7 +177,6 @@ def main(
         '64': [],
         '96': []
     }
-
     final_result_bacc = {
         '8': [],
         '16': [],
@@ -188,7 +184,6 @@ def main(
         '64': [],
         '96': []
     }
-
     final_result_f1 = {
         '8': [],
         '16': [],
@@ -196,7 +191,6 @@ def main(
         '64': [],
         '96': []
     }
-
     final_result_kappa = {
         '8': [],
         '16': [],
@@ -206,14 +200,14 @@ def main(
     }
 
 
-    ### Load the assay keys
+    # Load the assay keys.
     with open(json_path) as f:
         data = json.load(f)
     train_split = data['train']
     val_split = data['val']
     test_split = data['test']
- 
-    #train_split = train_split + val_split
+    
+    # Fill the column ASSAY_ID.
     final_result_auroc['ASSAY_ID'] = test_split
     final_result_dauprc['ASSAY_ID'] = test_split
     final_result_bacc['ASSAY_ID'] = test_split
@@ -221,11 +215,11 @@ def main(
     final_result_kappa['ASSAY_ID'] = test_split
     
 
-    ### Loop through all support set size, performing few-shot prediction:
+    # Loop through all support set size, performing few-shot prediction.
     for support_set_size in support_set_sizes:
         tqdm.write(f"Analysing for support set size {support_set_size}")
 
-        # Load train data
+        # Load train data.
         train_data = protonet_cp_dataset(
             train_split, 
             label_df_path= label_df_path, 
@@ -245,7 +239,7 @@ def main(
                 collate_fn=train_sampler.episodic_collate_fn,
         )
 
-        # Load val data
+        # Load val data.
         val_data = protonet_cp_dataset(
             val_split, 
             label_df_path= label_df_path, 
@@ -265,14 +259,13 @@ def main(
                 collate_fn=train_sampler.episodic_collate_fn,
         )
 
-        # Load model
+        # Load model.
         input_shape=len(train_data[3][0])
         backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
         model = ProtoNet(backbone).to(device)
 
-        # Pretrain on random assays
+        # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
         optimizer = optim.Adam(model.parameters(), weight_decay=1e-4)
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
@@ -292,19 +285,10 @@ def main(
                 if episode_index % log_update_freq == 0:
                     tqdm_train.set_postfix(train_loss=sliding_average(all_loss, log_update_freq), val_acc=eval(model, val_loader, device))
 
-        '''
-        # Performance before pretraining
-        before_mean, before_std = evaluate(
-            model, 
-            test_loader, 
-            #save_path=os.path.join(temp_folder, f"protonet_before_{support_set_size}_{test_assay}.npy")
-        )
-        result_before_pretrain[str(support_set_size)+'_auc_before_train'].append(f"{before_mean:.2f}+/-{before_std:.2f}")
-        '''
-
+        # Perform inference on all test assays.
         for test_assay in tqdm(test_split):
             
-            # Load test data
+            # Load test data.
             test_data = protonet_cp_dataset(
                 test_split, 
                 label_df_path= label_df_path, 
@@ -325,7 +309,7 @@ def main(
                 collate_fn=test_sampler.episodic_collate_fn,
             )
 
-            # Performance after pretraining
+            # Evaluate the performance of the model.
             auroc_mean, auroc_std, dauprc_mean, dauprc_std, bacc_mean, bacc_std, f1_mean, f1_std, kappa_mean, kappa_std = evaluate(
                 model, 
                 test_loader, 
@@ -337,7 +321,7 @@ def main(
             final_result_f1[str(support_set_size)].append(f"{f1_mean:.2f}+/-{f1_std:.2f}")
             final_result_kappa[str(support_set_size)].append(f"{kappa_mean:.2f}+/-{kappa_std:.2f}")
 
-    # Create result summary dataframe
+    # Create and save result summary csv files.
     df_assay_id_map = pd.read_csv(df_assay_id_map_path)
     df_assay_id_map = df_assay_id_map.astype({'ASSAY_ID': str})
 
@@ -360,6 +344,7 @@ def main(
     df_score = pd.DataFrame(data=final_result_kappa)
     df_final = pd.merge(df_assay_id_map[['ASSAY_ID', 'assay_chembl_id']], df_score, on='ASSAY_ID', how='right')
     df_final.to_csv(result_summary_path5, index=False)
+
 
 if __name__ == '__main__':
     main()
