@@ -163,11 +163,11 @@ def main(
     cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
 
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_kappa_result_summary.csv') 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
+    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_bacc_result_summary.csv') 
+    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_f1_result_summary.csv') 
+    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_kappa_result_summary.csv') 
 
 
     # Final result dictionary.
@@ -270,11 +270,11 @@ def main(
         # Load model.
         input_shape=len(train_data[3][0])
         backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
-        model = ProtoNet(backbone, dist='Euclidean').to(device)
+        model = ProtoNet(backbone, dist='CosineSimilarity').to(device)
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.0001)
+        optimizer = optim.Adam(model.parameters(), lr=0.0005) #0.0001
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
         model.train()

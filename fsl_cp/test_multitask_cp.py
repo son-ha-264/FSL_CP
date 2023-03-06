@@ -69,8 +69,7 @@ def main(
     feature_df = feature_df.drop(columns=['INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'])
 
     if not path_to_weight:
-        #path_to_weight = os.path.join(HOME, 'FSL_CP/weights/multitask_cp/final_model.ckpt')
-        path_to_weight = os.path.join(HOME, '/home/son.ha/FSL_CP/logs/multitask_only_cp_pretrain/lightning_logs/version_0/checkpoints/final_model.ckpt')
+        path_to_weight = os.path.join(HOME, 'FSL_CP/weights/multitask_cp/final_model.ckpt')
 
     ### Final result dictionary
     final_result_auroc = {
