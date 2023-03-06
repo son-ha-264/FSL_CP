@@ -1,0 +1,26 @@
+name: fslcp
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.9
+  - pip=20.1.1
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.7
+  - ca-certificates
+  - openssl
+  - timm
+  - certifi
+  - pandas
+  - scikit-learn
+  - pytorch-lightning
+  - xgboost
+  - tensorboard
+  - ipykernel
+  - matplotlib
+  - pytorch
+  - pip:
+      - learn2learn

@@ -270,7 +270,7 @@ def main(
         # Load model.
         input_shape=len(train_data[3][0])
         backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
-        model = ProtoNet(backbone, dist='CosineSimilarity').to(device)
+        model = ProtoNet(backbone, dist='Euclidean').to(device)
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
