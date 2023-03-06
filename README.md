@@ -29,5 +29,6 @@ You can also download using curl or wget like below:
 In addition, we supply a small [sample](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_sample.zip?ticket=WUTctNZlyRc6Mdw) of the dataset. One cannot run the model with only these samples, but it is useful for those who wants to have an idea what the dataset looks like.
 
 > curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_sample.zip?ticket=WUTctNZlyRc6Mdw --output fsl_cp_sample.zip
+
 > wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_sample.zip?ticket=WUTctNZlyRc6Mdw -O fsl_cp_sample.zip
 
