@@ -1,6 +1,6 @@
 {   
     "training": {
-        "max_epochs": 100,
+        "max_epochs": 50,
         "batch_size": 256
     },
     "optimizer_params": {

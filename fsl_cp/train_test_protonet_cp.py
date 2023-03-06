@@ -18,6 +18,7 @@ from utils.models.protonet import ProtoNet, FNN_Relu
 from datamodule.protonet_cp import protonet_cp_dataset, protonet_cp_sampler
 from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score, accuracy_score
 
+# More Hyperpara tuning
 
 def fit(
         support_images: torch.Tensor,
@@ -36,8 +37,9 @@ def fit(
     classification_scores = model(
         support_images.to(device), support_labels.to(device), query_images.to(device)
     )
-
-    loss = criterion(classification_scores, query_labels.to(device))
+    s = nn.LogSoftmax(dim=1)
+    log_p = s(classification_scores)
+    loss = criterion(log_p, query_labels.to(device))
     loss.backward()
     optimizer.step()
 
@@ -53,13 +55,17 @@ def evaluate_on_one_task(
     device
 ):
     """Returns the prediction of the protonet model and the real label."""
-    return (
-        torch.max(
-            model(support_images.to(device), support_labels.to(device), query_images.to(device))
-            .detach()
-            .data,
-            1,
-        )[1]).cpu().numpy(), query_labels.cpu().numpy()
+    s = nn.Softmax(dim=1)
+    pred_float = s(model(support_images.to(device), support_labels.to(device), query_images.to(device))).detach().cpu().numpy()
+    pred_float = [i[1] for i in pred_float]
+    pred_round = (
+    torch.max(
+        model(support_images.to(device), support_labels.to(device), query_images.to(device))
+        .detach()
+        .data,
+        1,
+    )[1]).cpu().numpy()
+    return pred_float, pred_round, query_labels.cpu().numpy()
 
 
 def evaluate(model, data_loader: DataLoader, device):
@@ -80,11 +86,12 @@ def evaluate(model, data_loader: DataLoader, device):
             class_ids,
         ) in enumerate(data_loader):
 
-            y_pred, y_true = evaluate_on_one_task(
+            y_float, y_pred, y_true = evaluate_on_one_task(
                 model, support_images, support_labels, query_images, query_labels, device
             )
-            AUROC_score = roc_auc_score(y_true, y_pred)
-            dAUPRC_score = delta_auprc(y_true, y_pred)
+            print(y_float)
+            AUROC_score = roc_auc_score(y_true, y_float)
+            dAUPRC_score = delta_auprc(y_true, y_float)
             bacc_score = balanced_accuracy_score(y_true, y_pred, adjusted=True)
             F1_score = f1_score(y_true, y_pred)
             kappa_score = cohen_kappa_score(y_true, y_pred)
@@ -111,7 +118,7 @@ def eval(model, data_loader: DataLoader, device):
             class_ids,
         ) in enumerate(data_loader):
 
-            y_pred, y_true = evaluate_on_one_task(
+            y_float, y_pred, y_true = evaluate_on_one_task(
                 model, support_images, support_labels, query_images, query_labels, device
             )
             acc_scores.append(accuracy_score(y_true, y_pred))
@@ -146,7 +153,8 @@ def main(
     num_episodes_val = 100
     num_episodes_test = 100
     step_size = 20000
-    log_update_freq = 100
+    log_update_freq = 50
+    val_freq = 1000
 
     HOME = os.environ['HOME']
 
@@ -155,11 +163,11 @@ def main(
     cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
 
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_kappa_result_summary.csv') 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_dauprc_result_summary.csv') 
+    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_bacc_result_summary.csv') 
+    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_f1_result_summary.csv') 
+    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary2/protonet_cp_kappa_result_summary.csv') 
 
 
     # Final result dictionary.
@@ -262,11 +270,11 @@ def main(
         # Load model.
         input_shape=len(train_data[3][0])
         backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
-        model = ProtoNet(backbone).to(device)
+        model = ProtoNet(backbone, dist='Euclidean').to(device)
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), weight_decay=1e-4)
+        optimizer = optim.Adam(model.parameters(), lr=0.0001)
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
         model.train()
@@ -279,11 +287,15 @@ def main(
                 _,
             ) in tqdm_train:
                 loss_value = fit(support_images, support_labels, query_images, query_labels, criterion, optimizer, model, device)
-                if episode_index % step_size == 0:
+                if episode_index % step_size == 0 and episode_index!=0:
                     scheduler.step()
                 all_loss.append(loss_value)
                 if episode_index % log_update_freq == 0:
-                    tqdm_train.set_postfix(train_loss=sliding_average(all_loss, log_update_freq), val_acc=eval(model, val_loader, device))
+                    if episode_index % val_freq == 0:
+                        val_acc = eval(model, val_loader, device)
+
+                    tqdm_train.set_postfix(val_acc=val_acc, train_loss=sliding_average(all_loss, log_update_freq))
+                
 
         # Perform inference on all test assays.
         for test_assay in tqdm(test_split):

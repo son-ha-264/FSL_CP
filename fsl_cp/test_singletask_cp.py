@@ -57,11 +57,11 @@ def main(
     HOME = os.environ['HOME']
     data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_kappa_result_summary.csv') 
+    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_auroc_result_summary.csv') 
+    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_dauprc_result_summary.csv') 
+    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_bacc_result_summary.csv') 
+    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_f1_result_summary.csv') 
+    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_kappa_result_summary.csv') 
 
     ### Open feature df
     feature_df = pd.read_csv(os.path.join(data_folder, 'norm_CP_feature_df.csv'))
@@ -151,15 +151,8 @@ def main(
                                         shuffle=False, num_workers=20)
 
                 
-                ### Load pretrained models
-                fnn_pretrained = load_FNN_with_trained_weights(
-                    path_to_weight=path_to_weight,
-                    input_shape=len(support_set[3][0]),
-                )
-                fnn_pretrained.classifier[10] = Linear(in_features=2048, out_features=1, bias=True)
-                fnn_pretrained = fnn_pretrained.to(device)
-
-                #fnn_pretrained = FNN_Relu(input_shape=len(support_set[3][0]), num_classes=1).to(device)
+                ### Load model
+                fnn_pretrained = FNN_Relu(input_shape=len(support_set[3][0]), num_classes=1).to(device)
 
                 # Fine-tune
                 #optimizer = optim.SGD(fnn_pretrained.parameters(), lr=0.001, momentum=0.9)

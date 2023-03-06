@@ -41,10 +41,31 @@ class FNN_Relu(nn.Module):
         return self.classifier(x)
 
 
+def _cosine_sim(x, y, func):
+    '''
+    Compute euclidean distance between two tensors
+    x: N x D
+    y: M x D
+    '''
+    
+    n = x.size(0)
+    m = y.size(0)
+    d = x.size(1)
+    if d != y.size(1):
+        raise Exception
+
+    x = x.unsqueeze(1).expand(n, m, d)
+    y = y.unsqueeze(0).expand(n, m, d)
+
+    return(func(x,y))
+
+
 class ProtoNet(nn.Module):
-    def __init__(self, backbone: nn.Module):
+    def __init__(self, backbone: nn.Module, dist='CosineSimilarity'):
         super(ProtoNet, self).__init__()
         self.backbone = backbone
+        self.dist = dist
+        assert self.dist in ["CosineSimilarity", "Euclidean"]
     
     def forward(
         self,
@@ -66,10 +87,12 @@ class ProtoNet(nn.Module):
             ]
         )
 
-        dists = torch.cdist(z_query, z_proto)
-        # sim = cosine_sim
-        # Use + instead of -
-
-        scores = -dists
-        # May be cosine similarity in the future?
+        if self.dist == 'CosineSimilarity':
+            sim = nn.CosineSimilarity(dim=2, eps=1e-6)
+            scores = _cosine_sim(z_query, z_proto, sim)
+        elif self.dist == 'Euclidean':
+            dists = torch.cdist(z_query, z_proto)
+            scores = -dists
+        else:
+            pass
         return scores
