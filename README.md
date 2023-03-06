@@ -18,9 +18,9 @@ Note 2: CUDA is not available on MacOS. If you use MacOS, delete 'nvidia' from t
 
 ## Downloading data 
 
-Click on the hyperlink to download the [images](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF), [csv files](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/output.zip?ticket=zLF2wINy8vpK6oK), and [weights of multiask model](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/weights.zip?ticket=vkjYyYjMGvLIQOh).
+Click on the hyperlink to download the [images](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF), [csv files](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/output.zip?ticket=zLF2wINy8vpK6oK), and [weights of multitask model](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/weights.zip?ticket=vkjYyYjMGvLIQOh).
 
-Since the images are fairly big (~300G), curl or wget can also be used to download:
+Since the images are fairly big (~300G), you can also download them via curl or wget:
 
 > curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF --output fsl_cp_images.zip
 
@@ -38,7 +38,7 @@ In addition, we supply a small [sample](https://irods-web.zdv.uni-mainz.de/irods
 3. Create an empty *logs* folder.
 4. Place the images folder anywhere you like.
 
-The folder hierachy should look like the Screenshot_repo.png file.
+The folder hierachy should look like [this](./Screenshot_repo.png).
 
 ## Benchmark models
 The codes for all models are placed in the *fsl_cp* folder. 
