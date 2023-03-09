@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 import torch.optim as optim
 import torch.nn as nn 
 import collections
+import timm
 from sklearn.model_selection import train_test_split
 from utils.models.shared_models import FNN_Relu
 from pandas.errors import DtypeWarning
@@ -18,18 +19,19 @@ warnings.simplefilter(action='ignore', category=DtypeWarning)
 
 
 def _change_assay_to_columns(df):
-        newdf = df.pivot(index='NUM_ROW_CP_FEATURES', columns='ASSAY', values="LABEL")
+        df['SAMPLE_KEY_VIEW'] = df[['SAMPLE_KEY', 'VIEWS']].agg('-'.join, axis=1).str[0:11]
+        newdf = df.pivot(index='SAMPLE_KEY_VIEW', columns='ASSAY', values="LABEL")
         newdf = newdf.rename(columns={newdf.columns[0]: 'LABEL'})
         return(newdf)
 
-def prepare_support_query_multitask_cp(
+def prepare_support_query_multitask_img(
     assay_code: str,
     label_df_path: str,
-    feature_df: pd.core.frame.DataFrame,
     support_set_size: int,
     query_set_size: int,
+    image_path: str,
+    transform,
     random_state=None,
-
 ):
 
     # Inits
@@ -57,16 +59,19 @@ def prepare_support_query_multitask_cp(
     support_set_df = support_set_df.fillna(-1)
     query_set_df = query_set_df.fillna(-1)
 
-    return multitask_cp_dataset(feature_df, support_set_df), multitask_cp_dataset(feature_df, query_set_df)
+    return multitask_img_dataset(image_path, support_set_df, transform), multitask_img_dataset(image_path, query_set_df, transform)
 
 
-class multitask_cp_dataset(Dataset):
+class multitask_img_dataset(Dataset):
     def __init__(self,
-            feature_df: pd.core.frame.DataFrame,
-            label_df: pd.core.frame.DataFrame,):
+        image_path:str,
+        label_df: pd.core.frame.DataFrame,
+        transform=None,
+    ):
         super().__init__()
+        self.image_path = image_path
         self.label_df = label_df
-        self.feature_df = feature_df
+        self.transform = transform
     
     def __len__(self):
         return len(self.label_df)
@@ -74,13 +79,16 @@ class multitask_cp_dataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.item()
-        cp_f_df_idx = self.label_df['NUM_ROW_CP_FEATURES'][idx]
-        x = torch.tensor(self.feature_df.iloc[cp_f_df_idx, :],dtype=torch.float)
+        filename = self.label_df.loc[idx, 'SAMPLE_KEY_VIEW'] + '.npz'
+        filename = os.path.join(self.image_path, filename)
+        x = np.load(filename)["sample"]
         y = torch.tensor(self.label_df.loc[idx, 'LABEL'],dtype=torch.float)
+        if self.transform:
+            x = self.transform(x)
         return x,y 
     
     def return_df(self):
-        return self.feature_df, self.label_df
+        return self.label_df
 
 
 class multitask_pretrain_img_dataset(Dataset):
@@ -127,20 +135,22 @@ class multitask_pretrain_img_dataset(Dataset):
         return x,y 
 
 
-def load_FNN_with_trained_weights(path_to_weight: str, input_shape, map_location=torch.device('cuda:0')):
+def load_CNN_with_trained_weights(path_to_weight: str, input_shape, map_location=torch.device('cuda:0')):
     """Return FNN with trained weights 
        Change which GPU/CPU to load the model on with map_loaction 
     """
     checkpoint = torch.load(path_to_weight, map_location=map_location)
-    fnn = FNN_Relu(num_classes=checkpoint['hyper_parameters']['num_classes'], input_shape=input_shape)
+    model = timm.create_model('resnet50', in_chans=5, pretrained=False)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, 183, bias=True)
     weights = checkpoint["state_dict"]
     del weights['sigma']
     keys = list(weights.keys())
     values = weights.values()
     new_keys = [i[6:] for i in keys]
     new_dict = collections.OrderedDict(zip(new_keys, values))
-    fnn.load_state_dict(new_dict)
-    return fnn
+    model.load_state_dict(new_dict)
+    return model
 
 
 def each_view_a_datapoint(df):

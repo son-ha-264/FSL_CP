@@ -1,34 +1,31 @@
-from torch.utils.data import Dataset
-from typing import List, Tuple
-import pandas as pd
 import torch
+from torch.utils.data import Dataset, Sampler
+
 import random
+import pandas as pd
 from torch import Tensor
-from torch.utils.data import Sampler
-from sklearn.model_selection import train_test_split
-import warnings
+from typing import List, Tuple
 from pandas.errors import DtypeWarning
+from abc import ABC, abstractclassmethod
+
 from .utils import task_sample
 
-warnings.filterwarnings("ignore", category=DtypeWarning)
+# Ignore unecessary warning
+import warnings
+warnings.simplefilter(action='ignore', category=DtypeWarning)
 
-class maml_img_dataset(Dataset):
-    """DataLoader for MAML running on CP profiles. 
-       Input JSONL files, convert them to lists of inputs and labels
 
-    Args:
-        assay_code: list of code numbers of assay
-        data_folder: path to jsonl data files
-        cp_f_path: list of paths to csv files with features (e.g. ecfp,...)
-    """
+# 2 dataset classes, CP and image
+# Image dataset class has an abstract method of how to process the image 
+
+
+class BaseDatasetCP(Dataset):
 
     def __init__(self, 
                 assay_codes: List[str], 
                 label_df_path: str,
                 cp_f_path: List[str],
     ):
-        super().__init__()
-
         # Load label csv file
         self.label_df = pd.read_csv(label_df_path)
         self.label_df['ASSAY'] = self.label_df['ASSAY'].astype(str)
@@ -57,10 +54,9 @@ class maml_img_dataset(Dataset):
 
     def get_label_df(self):
         return self.label_df
+    
 
-
-
-class maml_cp_sampler(Sampler):
+class BaseSamplerCP(Sampler):
     """
     1. Sample n tasks/assays from a total of N tasks
     2. For each task,
@@ -72,7 +68,7 @@ class maml_cp_sampler(Sampler):
     """
     def __init__(
         self,
-        task_dataset: maml_img_dataset,
+        task_dataset: BaseDatasetCP,
         support_set_size: int,
         query_set_size: int,
         meta_batch_size:int, 

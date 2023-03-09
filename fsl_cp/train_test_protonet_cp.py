@@ -89,7 +89,6 @@ def evaluate(model, data_loader: DataLoader, device):
             y_float, y_pred, y_true = evaluate_on_one_task(
                 model, support_images, support_labels, query_images, query_labels, device
             )
-            print(y_float)
             AUROC_score = roc_auc_score(y_true, y_float)
             dAUPRC_score = delta_auprc(y_true, y_float)
             bacc_score = balanced_accuracy_score(y_true, y_pred, adjusted=True)
@@ -274,7 +273,8 @@ def main(
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.0005) #0.0001
+        #optimizer = optim.Adam(model.parameters(), lr=0.0002) #0.0001
+        optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9, weight_decay=1e-4)
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
         model.train()

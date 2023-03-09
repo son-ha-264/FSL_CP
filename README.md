@@ -44,4 +44,11 @@ The folder hierachy should look like [this](./Screenshot_repo.png).
 The codes for all models are placed in the *fsl_cp* folder. 
 
 ## Using the dataset
-There are tutorial notebooks available (soon). 
+There are tutorial notebooks available in the *notebook* folder. 
+
+## Note about image embedding generation
+The base dataset class supports concatenating features from different CSV files. But if you generate new embeddings from the data, please save them to a CSV file (like norm_CP_feature_df.csv), and make sure:
+1. The first 3 columns are 'INCHIKEY', 'CPD_SMILES', 'SAMPLE_KEY'. The rest of the columns are embeddings.
+2. the 'SAMPLE_KEY'column is **in the same order** as in the norm_CP_feature_df.csv.
+
+

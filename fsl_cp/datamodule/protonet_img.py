@@ -3,7 +3,6 @@ from typing import List, Tuple
 import pandas as pd
 import torch
 import os
-import jsonlines
 import random
 from torch import Tensor
 from torch.utils.data import Sampler

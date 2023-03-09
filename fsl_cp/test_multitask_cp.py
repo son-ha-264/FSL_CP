@@ -158,8 +158,6 @@ def main(
                 fnn_pretrained.classifier[10] = Linear(in_features=2048, out_features=1, bias=True)
                 fnn_pretrained = fnn_pretrained.to(device)
 
-                #fnn_pretrained = FNN_Relu(input_shape=len(support_set[3][0]), num_classes=1).to(device)
-
                 # Fine-tune
                 #optimizer = optim.SGD(fnn_pretrained.parameters(), lr=0.001, momentum=0.9)
                 optimizer = optim.Adam(fnn_pretrained.parameters(), 0.0001)
@@ -189,9 +187,11 @@ def main(
                         pred = sigmoid(pred)
                         list_pred.append(pred)
                         list_true.append(labels)
-                tensor_pred = torch.cat(list_pred, 1)
+                tensor_pred = torch.cat(list_pred, 0)
+                tensor_pred = torch.squeeze(tensor_pred)
                 pred_array = tensor_pred.cpu().detach().numpy()
-                true_array = labels.detach().numpy()
+                tensor_true = torch.cat(list_true, 0)
+                true_array = tensor_true.cpu().detach().numpy()
                 list_auroc.append(roc_auc_score(true_array, pred_array))
                 list_dauprc.append(delta_auprc(true_array, pred_array))                
                 list_bacc.append(balanced_accuracy_score(true_array, np.rint(pred_array), adjusted=True))

@@ -57,18 +57,6 @@ class protonet_cp_dataset(Dataset):
     def get_label_df(self):
         return self.label_df
 
-'''
-def _sample_with_seed(seq, n, seed):
-    if seed>=0:
-        random.seed(seed)
-    ans = random.sample(seq, n)
-    return ans
-'''
-
-
-### TODO: strtified task sampler, random task sampler
-### https://github.com/microsoft/FS-Mol/blob/main/fs_mol/data/fsmol_task_sampler.py
-
 
 class protonet_cp_sampler(Sampler):
     """
@@ -90,8 +78,6 @@ class protonet_cp_sampler(Sampler):
         sample_method = 'stratify'
     ):
         super().__init__(data_source=None)
-        #self.n_shots_support = int(support_set_size/2) #NOTE!: here is actually n-shots!!!, support_set = 2 x n_shots 
-        #self.n_shots_query = int(query_set_size/2)
 
         # Inits
         self.support_set_size = support_set_size
