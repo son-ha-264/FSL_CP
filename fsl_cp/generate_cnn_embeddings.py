@@ -28,6 +28,7 @@ class npzimages(Dataset):
         super().__init__()
         self.img_dir = img_dir
         self.transform = transform
+        self.filenames = sorted(os.listdir(f'{self.img_dir}'))
     
 
     def __len__(self):
@@ -41,9 +42,9 @@ class npzimages(Dataset):
         Keyword arguments:
         idx -- index of image in dataset
         """
-        filename = sorted(os.listdir(f'{self.img_dir}'))[idx]  
-        image = np.load(f'{self.img_dir}/{filename}')['sample']
-        filename = filename.rsplit('-',1)[0]
+        self.filename = self.filenames[idx]  
+        image = np.load(f'{self.img_dir}/{self.filename}')['sample']
+        filename = self.filename.rsplit('-',1)[0]
        
         
         if self.transform:
@@ -56,7 +57,7 @@ class npzimages(Dataset):
 
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 
 

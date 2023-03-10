@@ -11,6 +11,7 @@ from torch.nn.modules import Linear
 import torch.optim as optim
 import torch.nn as nn
 from torch.optim.lr_scheduler import StepLR
+from os.path import expanduser
 
 from utils.metrics import multitask_bce
 from datamodule.multitask_cp import prepare_support_query_multitask_cp, load_FNN_with_trained_weights
@@ -54,7 +55,7 @@ def main(
     sigmoid = torch.nn.Sigmoid()
 
     ### Paths inits
-    HOME = os.environ['HOME']
+    HOME = expanduser("~")
     data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
     result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/multitask_cp_auroc_result_summary.csv') 

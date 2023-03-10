@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from scipy import stats
+from os.path import expanduser
 from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score, accuracy_score, roc_auc_score
 
 from utils.metrics import delta_auprc
@@ -154,7 +155,7 @@ def main(seed=69):
     log_update_freq = 100
 
     # Path name inits
-    HOME = os.environ['HOME']
+    HOME = expanduser("~")
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
     label_df_path = os.path.join(HOME,'FSL_CP/data/output/FINAL_LABEL_DF.csv')
     df_assay_id_map_path = os.path.join(HOME,'FSL_CP/data/output/assay_target_map.csv')

@@ -12,6 +12,7 @@ from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
+from os.path import expanduser
 
 def main(
         seed=69
@@ -30,11 +31,12 @@ def main(
 
 
     ### Path inits 
-    data_folder = '/home/son.ha/FSL_CP/data/output'
-    hparam_file = '/home/son.ha/FSL_CP/fsl_cp/hparams/fnn_multitask.json'
+    HOME = expanduser("~")
+    data_folder = os.path.join(HOME, 'FSL_CP/data/output')
+    hparam_file = os.path.join(HOME, 'FSL_CP/fsl_cp/hparams/fnn_multitask.json')
     cp_f_path = os.path.join(data_folder, 'norm_CP_feature_df.csv') 
     feature_df = pd.read_csv(cp_f_path)
-    logs_path = '/home/son.ha/FSL_CP/logs/multitask_only_cp_pretrain'
+    logs_path = os.path.join(HOME, 'FSL_CP/logs/multitask_only_cp_pretrain')
 
 
     ### Load hparams from JSON files

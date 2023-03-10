@@ -6,6 +6,7 @@ import pandas as pd
 import argparse
 from tqdm import tqdm
 import learn2learn as l2l
+from os.path import expanduser
 from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score, accuracy_score, roc_auc_score
 
 from utils.metrics import delta_auprc
@@ -135,7 +136,7 @@ def main(
         device = torch.device(cuda_device)
 
     ### Paths inits
-    HOME = os.environ['HOME']
+    HOME = expanduser("~")
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
     label_df_path = os.path.join(HOME,'FSL_CP/data/output/FINAL_LABEL_DF.csv')
     df_assay_id_map_path = os.path.join(HOME,'FSL_CP/data/output/assay_target_map.csv')

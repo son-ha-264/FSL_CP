@@ -4,6 +4,7 @@ import timm
 import argparse
 import pandas as pd
 from sklearn.metrics import roc_auc_score
+from os.path import expanduser
 
 from utils.misc import NormalizeByImage
 from utils.metrics import multitask_bce, delta_auprc
@@ -60,7 +61,7 @@ def main(
     loss_function = multitask_bce()
 
     ### Path inits
-    HOME = os.environ['HOME']
+    HOME = expanduser("~")
     data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     hparam_file = os.path.join(HOME, 'FSL_CP/fsl_cp/hparams/cnn_multitask.json')
     logs_path = os.path.join(HOME, 'FSL_CP/logs/multitask_img_pretrain')

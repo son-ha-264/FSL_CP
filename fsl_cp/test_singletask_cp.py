@@ -7,6 +7,7 @@ from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 
 import torch
+from os.path import expanduser
 from torch.nn.modules import Linear
 import torch.optim as optim
 import torch.nn as nn
@@ -54,7 +55,7 @@ def main(
     sigmoid = torch.nn.Sigmoid()
 
     ### Paths inits
-    HOME = os.environ['HOME']
+    HOME = expanduser("~")
     data_folder = os.path.join(HOME, 'FSL_CP/data/output')
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
     result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/singletask_cp_auroc_result_summary.csv') 
