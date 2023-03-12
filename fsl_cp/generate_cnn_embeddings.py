@@ -185,10 +185,11 @@ transforms_list = transforms.Compose([transforms.ToTensor(), transforms.Normaliz
 
 
 df_test = create_embedding('/mnt/scratch/Son_cellpainting/my_cp_images', transforms_list, model, 1000)
+#df_test = create_embedding('/mnt/scratch/Son_cellpainting/fsl_cp_images_sample', transforms_list, model, 1000)
 
 ######dataoutput#####
 
-norm_cp_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv').iloc[:, [0,1,5]]
+norm_cp_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv').iloc[:, [0,1,2]]
 label_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv')
 
 label_df = label_df.drop_duplicates(subset='SAMPLE_KEY').iloc[:, 0:4]
@@ -198,8 +199,6 @@ label_df = label_df.iloc[:, 2:4]
 bre = df_test.pop('SAMPLE_KEY')
 df_test.insert(0,'SAMPLE_KEY', bre)
 
-
-
-norm_cp_df = pd.merge(norm_cp_df, label_df,how='left')
-df_final = pd.merge(norm_cp_df, df_test,how='left').fillna(0)
+#norm_cp_df = pd.merge(norm_cp_df, label_df,how='left', on='SAMPLE_KEY')
+df_final = pd.merge(norm_cp_df, df_test,how='left', on='SAMPLE_KEY').fillna(0)
 df_final.to_csv('/home/son.ha/FSL_CP/data/output/cnn_embeddings.csv', index=False)
