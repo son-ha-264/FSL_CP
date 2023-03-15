@@ -131,12 +131,16 @@ def main(
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json') 
     label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
-    cp_f_path=[os.path.join(HOME, 'FSL_CP/data/output/norm_CP_feature_df.csv')]
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary2/maml_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary2/maml_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary2/maml_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary2/maml_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary2/maml_cp_kappa_result_summary.csv') 
+    #cp_f_path=[os.path.join(HOME, 'FSL_CP/data/output/norm_CP_feature_df.csv')]
+    cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv'),
+               os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
+    
+    feature = 'cp+'
+    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_auroc_result_summary.csv") 
+    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_dauprc_result_summary.csv") 
+    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_bacc_result_summary.csv") 
+    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_f1_result_summary.csv") 
+    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_kappa_result_summary.csv") 
 
     ### Final result dictionary
     final_result_auroc = {
@@ -221,8 +225,8 @@ def main(
         input_shape=len(train_data[3][0])
         model= FNN_Relu(num_classes=1, input_shape=input_shape)
         model.to(device)
-        maml = l2l.algorithms.MAML(model, lr=0.001, first_order=False) #0.01 
-        opt = optim.Adam(maml.parameters(), 0.0001) #0.001 
+        maml = l2l.algorithms.MAML(model, lr=0.01, first_order=False) 
+        opt = optim.Adam(maml.parameters(), 0.001)
         loss = nn.BCEWithLogitsLoss()
 
         # Train

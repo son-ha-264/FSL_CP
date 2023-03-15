@@ -138,6 +138,10 @@ def main(
         '-d', '--device', type=str, default='cuda:0',
         help='cuda, cuda:0 or cpu')
     args = parser.parse_args()
+    parser.add_argument(
+        '-f', '--feature', type=str, default='cp+',
+        help='cp or cp+. The former is only cp features, the latter is both cp features and cnn embeddings')
+    args = parser.parse_args()
 
     # Set arguments to variables.
     device = args.device
@@ -145,6 +149,7 @@ def main(
         device = torch.device('cpu')
     elif 'cuda' in device and torch.cuda.device_count():
         device = torch.device(device)
+    feature = args.feature
 
     # Various inits.
     support_set_sizes = [8, 16, 32, 64, 96]
@@ -155,19 +160,29 @@ def main(
     step_size = 20000
     log_update_freq = 50
     val_freq = 1000
+    if feature == "cp+":
+        num_classes = 256
+    elif feature == "cp":
+        num_classes = 512
 
     HOME = expanduser("~")
-
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
     label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
-    cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
+    if feature == "cp+":
+        cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv'),
+                os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
+    elif feature == "cp":
+        cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
+    else:
+        raise Exception("Input a valid feature type.")
+    #cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
 
-    result_summary_path1 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_auroc_result_summary.csv') 
-    result_summary_path2 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_dauprc_result_summary.csv') 
-    result_summary_path3 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_bacc_result_summary.csv') 
-    result_summary_path4 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_f1_result_summary.csv') 
-    result_summary_path5 = os.path.join(HOME, 'FSL_CP/result/result_summary/protonet_cp_kappa_result_summary.csv') 
+    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_auroc_result_summary.csv") 
+    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_dauprc_result_summary.csv") 
+    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_bacc_result_summary.csv") 
+    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_f1_result_summary.csv") 
+    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_kappa_result_summary.csv") 
 
 
     # Final result dictionary.
@@ -214,6 +229,10 @@ def main(
     train_split = data['train']
     val_split = data['val']
     test_split = data['test']
+
+    print(len(train_split))
+    print(len(val_split))
+    print(len(test_split))
     
     # Fill the column ASSAY_ID.
     final_result_auroc['ASSAY_ID'] = test_split
@@ -269,12 +288,12 @@ def main(
 
         # Load model.
         input_shape=len(train_data[3][0])
-        backbone = FNN_Relu(num_classes=512, input_shape=input_shape)
+        backbone = FNN_Relu(num_classes=256, input_shape=input_shape) #512 #256
         model = ProtoNet(backbone, dist='Euclidean').to(device)
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.0001) 
+        optimizer = optim.Adam(model.parameters(), lr=0.0001) # 0.0001
         #optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9, weight_decay=1e-4)
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
