@@ -6,17 +6,13 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import timm
 import os
+import argparse
+from os.path import expanduser
 
 from torch.utils import data
 from torch.utils.data import Dataset
 from torchvision import models, transforms
-from timm.data.dataset import ImageDataset
 from tqdm import tqdm
-
-
-
-
-
 
 
 class npzimages(Dataset):
@@ -53,32 +49,7 @@ class npzimages(Dataset):
         return image, filename
     
 
-
-
-
-
-device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-
-
-
-testdict = {'in_chans':5, 'embedding_size':1000, 'model_name':'resnet50', 'device':device}
-
-model = timm.create_model('resnet50', pretrained=True, in_chans=5)
-
-
-for param in model.parameters():
-    param.requires_grad = False
-
-# Parameters of newly constructed modules have requires_grad=True by default
-num_ftrs = model.fc.in_features
-embedding_size = 1000
-model.fc = nn.Linear(num_ftrs, embedding_size)
-
-model = model.to(device)
-
-
-
-def create_embedding(path_data, transforms, model, embedding_size, batch_size=1,):
+def create_embedding(path_data, transforms, model, embedding_size, batch_size=1, device='cuda:0'):
     """Feeds the given data to a pretrained model and returns an embedding of a given size.
     
     Keyword arguments:
@@ -180,25 +151,53 @@ def create_embedding(path_data, transforms, model, embedding_size, batch_size=1,
     
     return df_output
 
-transforms_list = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406, 0.450, 0.430], [0.229, 0.224, 0.225, 0.226, 0.222]) ])
 
+def main():
 
+    # Parse argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-p', '--path_to_image', type=str, default='/mnt/scratch/Son_cellpainting/fsl_cp_images_sample',
+        help='Path to CP image folder.')
+    args = parser.parse_args()
+    path_to_image = args.path_to_image
 
-df_test = create_embedding('/mnt/scratch/Son_cellpainting/my_cp_images', transforms_list, model, 1000)
-#df_test = create_embedding('/mnt/scratch/Son_cellpainting/fsl_cp_images_sample', transforms_list, model, 1000)
+    # Initialisation
+    HOME = expanduser("~")
+    label_df = pd.read_csv(os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv'))
+    norm_cp_df = pd.read_csv(os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')).iloc[:, [0,1,2]]
+    save_path = os.path.join(HOME, 'FSL_CP/data/output/cnn_embeddings2.csv')
 
-######dataoutput#####
+    # GPU or CPU
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-norm_cp_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/norm_CP_feature_df.csv').iloc[:, [0,1,2]]
-label_df = pd.read_csv('/home/son.ha/FSL_CP/data/output/FINAL_LABEL_DF.csv')
+    # Prepare model 
+    model = timm.create_model('resnet50', pretrained=True, in_chans=5)
+    for param in model.parameters():
+        param.requires_grad = False
+    num_ftrs = model.fc.in_features
+    embedding_size = 1000
+    model.fc = nn.Linear(num_ftrs, embedding_size)
+    model = model.to(device)
 
-label_df = label_df.drop_duplicates(subset='SAMPLE_KEY').iloc[:, 0:4]
-label_df['SAMPLE_KEY']=label_df['SAMPLE_KEY'].astype('string')
-label_df = label_df.iloc[:, 2:4]
+    # Tranformation
+    transforms_list = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406, 0.450, 0.430], [0.229, 0.224, 0.225, 0.226, 0.222]) ])
 
-bre = df_test.pop('SAMPLE_KEY')
-df_test.insert(0,'SAMPLE_KEY', bre)
+    # Create CNN embeddings
+    df_test = create_embedding(path_to_image, transforms_list, model, 1000, device=device)
 
-#norm_cp_df = pd.merge(norm_cp_df, label_df,how='left', on='SAMPLE_KEY')
-df_final = pd.merge(norm_cp_df, df_test,how='left', on='SAMPLE_KEY').fillna(0)
-df_final.to_csv('/home/son.ha/FSL_CP/data/output/cnn_embeddings.csv', index=False)
+    # Data output
+    label_df = label_df.drop_duplicates(subset='SAMPLE_KEY').iloc[:, 0:4]
+    label_df['SAMPLE_KEY']=label_df['SAMPLE_KEY'].astype('string')
+    label_df = label_df.iloc[:, 2:4]
+
+    bre = df_test.pop('SAMPLE_KEY')
+    df_test.insert(0,'SAMPLE_KEY', bre)
+
+    df_final = pd.merge(norm_cp_df, df_test,how='left', on='SAMPLE_KEY').fillna(0)
+    df_final.to_csv(save_path, index=False)
+
+    return None
+
+if __name__=='__main__':
+    main()

@@ -19,7 +19,6 @@ from utils.models.protonet import ProtoNet, FNN_Relu
 from datamodule.protonet_cp import protonet_cp_dataset, protonet_cp_sampler
 from sklearn.metrics import balanced_accuracy_score, f1_score, cohen_kappa_score, accuracy_score
 
-# More Hyperpara tuning
 
 def fit(
         support_images: torch.Tensor,
@@ -138,7 +137,6 @@ def main(
     parser.add_argument(
         '-d', '--device', type=str, default='cuda:0',
         help='cuda, cuda:0 or cpu')
-    args = parser.parse_args()
     parser.add_argument(
         '-f', '--feature', type=str, default='cp+',
         help='cp or cp+. The former is only cp features, the latter is both cp features and cnn embeddings')
@@ -168,7 +166,7 @@ def main(
 
     HOME = expanduser("~")
     json_path = os.path.join(HOME, 'FSL_CP/data/output/data_split.json')
-    label_df_path= os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
+    label_df_path = os.path.join(HOME, 'FSL_CP/data/output/FINAL_LABEL_DF.csv')
     if feature == "cp+":
         cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv'),
                 os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
