@@ -107,7 +107,8 @@ def evaluate(model, data_loader: DataLoader, device):
            
 
 def eval(model, data_loader: DataLoader, device):
-    """ Evaluate the model on a DataLoader object"""
+    """ Evaluate the model on a DataLoader object.
+    Only returns accuracy."""
     acc_scores = []
     with torch.no_grad():
         for episode_index, (
@@ -175,14 +176,13 @@ def main(
         cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/norm_CP_feature_df.csv')]
     else:
         raise Exception("Input a valid feature type.")
-    #cp_f_path=[os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
     df_assay_id_map_path = os.path.join(HOME, 'FSL_CP/data/output/assay_target_map.csv') 
 
-    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_auroc_result_summary.csv") 
-    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_dauprc_result_summary.csv") 
-    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_bacc_result_summary.csv") 
-    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_f1_result_summary.csv") 
-    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary2/protonet_{feature}_kappa_result_summary.csv") 
+    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary/protonet_{feature}_auroc_result_summary.csv") 
+    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary/protonet_{feature}_dauprc_result_summary.csv") 
+    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary/protonet_{feature}_bacc_result_summary.csv") 
+    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary/protonet_{feature}_f1_result_summary.csv") 
+    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary/protonet_{feature}_kappa_result_summary.csv") 
 
 
     # Final result dictionary.
@@ -229,10 +229,6 @@ def main(
     train_split = data['train']
     val_split = data['val']
     test_split = data['test']
-
-    print(len(train_split))
-    print(len(val_split))
-    print(len(test_split))
     
     # Fill the column ASSAY_ID.
     final_result_auroc['ASSAY_ID'] = test_split
@@ -288,13 +284,12 @@ def main(
 
         # Load model.
         input_shape=len(train_data[3][0])
-        backbone = FNN_Relu(num_classes=256, input_shape=input_shape) #512 #256
+        backbone = FNN_Relu(num_classes=num_classes, input_shape=input_shape) 
         model = ProtoNet(backbone, dist='Euclidean').to(device)
 
         # Meta-training the protonet.
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.0001) # 0.0001
-        #optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9, weight_decay=1e-4)
+        optimizer = optim.Adam(model.parameters(), lr=0.0001)
         scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
         all_loss = []
         model.train()

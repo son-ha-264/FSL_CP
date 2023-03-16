@@ -12,9 +12,7 @@ Few-shot learning for bioassay prediction with Cell Painting dataset.
     conda activate fslcp
     ```
 
-Note 1: It is advised to run mamba instead of conda to save ~20 mins of your life.
-
-Note 2: CUDA is not available on MacOS. If you use MacOS, delete 'nvidia' from the channel list in environment.yaml.
+Note: It is advised to run mamba instead of conda to save ~20 mins of your life.
 
 ## Downloading data 
 

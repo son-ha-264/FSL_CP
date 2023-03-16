@@ -136,11 +136,11 @@ def main(
                os.path.join(HOME,'FSL_CP/data/output/cnn_embeddings.csv')]
     
     feature = 'cp+'
-    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_auroc_result_summary.csv") 
-    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_dauprc_result_summary.csv") 
-    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_bacc_result_summary.csv") 
-    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_f1_result_summary.csv") 
-    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary2/maml_{feature}_kappa_result_summary.csv") 
+    result_summary_path1 = os.path.join(HOME, f"FSL_CP/result/result_summary/maml_{feature}_auroc_result_summary.csv") 
+    result_summary_path2 = os.path.join(HOME, f"FSL_CP/result/result_summary/maml_{feature}_dauprc_result_summary.csv") 
+    result_summary_path3 = os.path.join(HOME, f"FSL_CP/result/result_summary/maml_{feature}_bacc_result_summary.csv") 
+    result_summary_path4 = os.path.join(HOME, f"FSL_CP/result/result_summary/maml_{feature}_f1_result_summary.csv") 
+    result_summary_path5 = os.path.join(HOME, f"FSL_CP/result/result_summary/maml_{feature}_kappa_result_summary.csv") 
 
     ### Final result dictionary
     final_result_auroc = {
