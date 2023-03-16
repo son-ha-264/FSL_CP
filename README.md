@@ -1,5 +1,10 @@
 # FSL_CP
+[![Python 3.9](https://img.shields.io/badge/Python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[![Pytorch](https://img.shields.io/badge/PyTorch-1.13-red.svg)](https://pytorch.org/get-started/previous-versions/)
+
 Few-shot learning for bioassay prediction with Cell Painting dataset.
+
+
 
 ## Installation
 1. Clone this repository to your HOME folder.
