@@ -1,4 +1,4 @@
-# FSL-CP: Few-shot Prediction of Small Molecule Activity using Cell Microscopy Images 
+# FSL-CP: A Dataset for Small Molecule Activity Few-shot Prediction using Cell Microscopy Images 
 
 [![Python 3.9](https://img.shields.io/badge/Python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
 [![Pytorch](https://img.shields.io/badge/PyTorch-1.13-red.svg)](https://pytorch.org/get-started/previous-versions/)
