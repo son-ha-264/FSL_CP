@@ -6,7 +6,7 @@ import json
 import argparse
 import os
 
-from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn import metrics
@@ -22,7 +22,7 @@ warnings.simplefilter("ignore", UserWarning)
 
 def main():
 
-
+    
 
     HOME = expanduser("~")
 
@@ -73,24 +73,27 @@ def main():
     
 
 
+
+    df_assay.drop(['INCHIKEY','CPD_SMILES', 'SAMPLE_KEY'],axis=1,inplace=True)
+    df_feat.drop(['CPD_SMILES', 'SAMPLE_KEY', 'INCHIKEY'],axis=1,inplace=True)
+
+
+
     #list of asssays
     f = open(os.path.join(HOME,'FSL_CP/data/output/data_split.json'))
     datajs = json.load(f)
     ls_assay = datajs['test']
-
-
     
+
+
     #list of support set sizes
     ls_sss = [8, 16, 32, 64, 96]
 
 
 
     #hyperparameters 
-    parameters = {
-    'learning_rate': [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5],
-    'max_depth': np.arange(1, 11, 2),
-    'n_estimators': np.arange(50, 550, 50),
-    'subsample': [0.5, 1]
+    parameters = { 
+    'C' : [0.01, 0.1, 1.0, 10.0, 100.0]
     }
 
 
@@ -109,12 +112,11 @@ def main():
     print('number of iterations per support set size will be: ', total_iter_range)
     
 
-
+    
     def assay_df(assaydf,featuredf,assays,ass_iter,save):
         ''' Assigns features to the corresponding labels, returns a dataframe
 
         Keyword arguments:
-
         assaydf -- assay dataframe
         featuredf -- feature dataframe
         assays -- assay list
@@ -126,11 +128,12 @@ def main():
         assaydf['ASSAY'] = assaydf['ASSAY'].astype('string')
         
         temp_df = assaydf[assaydf['ASSAY'] == assays[ass_iter]]
-    
-        df_one_assay = pd.merge(temp_df, featuredf, how='left')
-
-        df_one_assay.drop(['VIEWS','ASSAY','INCHIKEY','CPD_SMILES', 'SAMPLE_KEY','NUM_ROW_CP_FEATURES'],axis=1,inplace=True)
+        temp_df = temp_df.set_index(['NUM_ROW_CP_FEATURES'])
         
+        df_one_assay=temp_df.join(featuredf, lsuffix='left_', rsuffix='_right')
+        df_one_assay.drop(['VIEWS','ASSAY'],axis=1,inplace=True)
+
+       
 
         if save == 'True':
             df_one_assay.to_csv(os.path.join(HOME,f'FSL_CP/data/output/{assays[ass_iter]}.csv'),index=False)
@@ -144,21 +147,21 @@ def main():
         '''Saves best parameters in a .json file.
 
         Keyword arguments:
-
         df -- parameter dataframe
         iter_ass -- iterator position in assay list
         iter_sss -- iterator position in support set sizes list
         '''
         json_name = 'params_assay_' + ls_assay[iter_ass] + '_sss_' + ls_sss[iter_sss]
+        #df.mode().iloc[0,:].to_json(path_or_buf=f'../under_construction/data_output/{json_name}.json')
         df.to_json(os.path.join(HOME,f'FSL_CP/data/output/{json_name}.json'))
 
 
 
+    
     def param_csv(df,iter_ass,iter_sss):
         '''Saves best parameters as .csv file.
 
         Keyword arguments:
-
         df -- parameter dataframe
         iter_ass -- iterator position in assay list
         iter_sss -- iterator position in support set sizes list
@@ -172,12 +175,11 @@ def main():
         '''Appends mean and std of a metric to a dictionary, returns the dictionary.
 
         Keyword arguments:
-
         df -- metric dataframe
         dicto -- dictionary for the corresponding metric
         it_ass -- iterator position in assay list
         '''
-
+                
         for i in df:
             m = np.mean(df[i].to_numpy())
             s = np.std(df[i].to_numpy())
@@ -189,7 +191,7 @@ def main():
         return dicto
 
     
-
+ 
     def delta_auprc(true, pred):
         '''Calculates the auc and baseline, returns the delta auc.
 
@@ -220,14 +222,14 @@ def main():
 
         if save_auc == 'True':
             df_parame = pd.DataFrame.from_dict(output_dictionary)
-            df_parame.to_csv(os.path.join(HOME,f'FSL_CP/result/result_summary/xgboost_cp_{metric_name}_result_summary.csv'), index = False)
+            df_parame.to_csv(os.path.join(HOME,f'FSL_CP/result/result_summary/logistic_cp_{metric_name}_result_summary.csv'), index = False)
 
         return None
 
 
 
-    #building the model with xgboost
-    model = XGBClassifier(objective='binary:logistic')
+    #building the model with logistic regression
+    model = LogisticRegression(multi_class='ovr', max_iter=500)
 
 
 
@@ -250,7 +252,7 @@ def main():
 
 
     save_auc = args.savmet
-    
+
     if save_auc == 'True':
         print('metrics will be saved')
     else:
@@ -260,7 +262,6 @@ def main():
 
     #initial for-loop that starts process for every assay we chose
     for i in tqdm(range(len(ls_assay)), desc='Number of test assays'):
-        #name = ls_assay[i]
 
              
         
@@ -298,7 +299,7 @@ def main():
                 
 
 
-                #support set  
+                #support set
                 X_rest, X_support, y_rest, y_support = train_test_split(X, y, test_size=ls_sss[j], stratify=y)
 
                 #query set
@@ -315,7 +316,8 @@ def main():
                     num_split=5
 
 
-                rscv = RandomizedSearchCV(model, parameters, random_state=7, n_jobs=4,cv=num_split)        
+
+                rscv = RandomizedSearchCV(model, parameters, random_state=7, n_jobs=4,cv=num_split)         
 
                 search = rscv.fit(X_support,y_support)
 
@@ -324,7 +326,7 @@ def main():
 
 
                 #adding parameters of the k-th run to the parameter dataframe
-                if save_param == True:
+                if save_param == 'True':
                     temporary = pd.DataFrame(params,index=[k])
                     df_param = pd.concat([temporary,df_param])         
 
