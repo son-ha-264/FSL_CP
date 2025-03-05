@@ -24,18 +24,26 @@ Note: It is advised to run mamba instead of conda to save ~20 mins of your life.
 All results are available in the *result* folder. In there, subfolder *notebook* is where all of the graphs come from.
 
 ## Downloading data 
-Click on the hyperlink to download the [images](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF), [csv files](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/output.zip?ticket=zLF2wINy8vpK6oK), and [weights of multitask model](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/weights.zip?ticket=vkjYyYjMGvLIQOh).
+Data can be downloaded via curl or wget:
 
-Since the images are fairly big (~300G), you can also download them via curl or wget:
+CSV files:
+> curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/output.zip?ticket=YX8NDNVBw9aUfzQ --output output.zip
 
-> curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF --output fsl_cp_images.zip
+> wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/output.zip?ticket=YX8NDNVBw9aUfzQ -O output.zip
 
-> wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF -O fsl_cp_images.zip
+Weights of the Multitask model
+> curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/weights.zip?ticket=NAJlnUkDvS8yY6G --output weights.zip
 
+> wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/weights.zip?ticket=NAJlnUkDvS8yY6G -O weights.zip
+
+#### NOTE: Images file
+Currently, there are problems with our data storage server and the images cannot be downloaded. We are actively trying to get it online as soon as possible.
 
 #### Sample dataset
+In addition, we supply a small sample of the dataset. It is useful for those who are curious what the dataset looks like, but cannot be used to run the scripts.These can be downloaded by running:
+> curl https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/fsl_cp_sample.zip?ticket=Vvu3IGRYbRtvWAG --output fsl_cp_sample.zip
 
-In addition, we supply a small [sample](https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/home/sonha/fsl_cp_sample.zip?ticket=WUTctNZlyRc6Mdw) of the dataset. It is useful for those who are curious what the dataset looks like, but cannot be used to run the scripts.
+> wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/fsl_cp_sample.zip?ticket=Vvu3IGRYbRtvWAG -O fsl_cp_sample.zip
 
 
 ## Setting up
