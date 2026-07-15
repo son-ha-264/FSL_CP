@@ -36,8 +36,8 @@ Weights of the Multitask model
 
 > wget https://irods-web.zdv.uni-mainz.de/irods-rest/rest/fileContents/zdv/project/m2_jgu-fsl-cp/weights.zip?ticket=NAJlnUkDvS8yY6G -O weights.zip
 
-#### NOTE: Images file
-Currently, there are problems with our data storage server and the images cannot be downloaded. We are actively trying to get it online as soon as possible.
+Images file: 
+> wget -c https://irods-web.zdv.uni-mainz.de/iticketserver/zdv/home/sonha/fsl_cp_images.zip?ticket=l2P9J6ConqQOLNF -O fsl_cp_images.zip
 
 #### Sample dataset
 In addition, we supply a small sample of the dataset. It is useful for those who are curious what the dataset looks like, but cannot be used to run the scripts.These can be downloaded by running:
